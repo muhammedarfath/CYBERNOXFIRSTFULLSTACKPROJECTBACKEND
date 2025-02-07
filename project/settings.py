@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'authentication',
     'aadhaarotp',
-    'notification',
+    'socketconnection',
     'partnerpreferences',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',

@@ -165,19 +165,19 @@ class DrinkingPreference(models.Model):
     status = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
-        return self.preference
+        return self.status
 
 class SmokingPreference(models.Model):
     status = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
-        return self.preference
+        return self.status
 
 class EthnicGroup(models.Model):
     status = models.CharField(max_length=100, unique=True)
 
     def __str__(self):
-        return self.group_name    
+        return self.status    
           
            
 class User(AbstractUser):
@@ -300,6 +300,7 @@ class FamilyInformation(models.Model):
     current_living = models.ForeignKey(CurrentLiving, on_delete=models.SET_NULL, null=True,blank=True)
     
     father_name = models.CharField(max_length=255)
+    mother_name = models.CharField(max_length=255)
     father_occupation = models.ForeignKey(
         Occupation, on_delete=models.SET_NULL, null=True, related_name="father_occupations"
     )

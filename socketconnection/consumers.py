@@ -12,13 +12,11 @@ class NotificationConsumer(WebsocketConsumer):
         # Fetch unread notifications for the authenticated user
         notifications = Notification.objects.filter(user=self.user, is_read=False)
 
-        # Prepare the notification data to send back to the client
         content = {
             'option': 'fetch_unread_notification',
             'notifications': [self.message_to_json(notification) for notification in notifications]
         }
 
-        # Send the notifications to the client
         self.send_notification(self.user, content)
 
     def interest_sent(self, data):
@@ -37,7 +35,6 @@ class NotificationConsumer(WebsocketConsumer):
             'notification': self.message_to_json(notification)
         }
 
-        # Send the notification to the recipient user
         self.send_notification(user, content)
 
     def message_to_json(self, notification):
@@ -85,6 +82,47 @@ class NotificationConsumer(WebsocketConsumer):
     def receive(self, text_data):
         data = json.loads(text_data)
         print(data['option'], "check is correct")
-        # Dynamically call the appropriate method based on the 'option' field
         if data['option'] in self.options:
             self.options[data['option']](self, data)
+            
+            
+            
+class ChatConsumer(WebsocketConsumer):
+    
+    def new_messages(self, data):
+        user_id = data['userId']
+        pass  
+    
+    def fetch_messages(self, data):
+        user_id = data['userId']
+        pass  
+    
+    options = {
+        'new_messages': new_messages,
+        'fetch_messages': fetch_messages
+    }
+    
+    
+    
+    def connect(self):
+        self.user = self.scope["user"]
+        if self.user.is_authenticated:
+            self.room_group_name = f"user_{self.user.id}"
+            async_to_sync(self.channel_layer.group_add)(
+                self.room_group_name, self.channel_name
+            )
+            self.accept()
+        else:
+            self.close()
+
+    def disconnect(self, close_code):
+        if self.user.is_authenticated:
+            self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+    def receive(self, text_data):
+        data = json.loads(text_data)
+        print(data['option'], "check is correct")
+        if data['option'] in self.options:
+            self.options[data['option']](self, data)
+            
+            

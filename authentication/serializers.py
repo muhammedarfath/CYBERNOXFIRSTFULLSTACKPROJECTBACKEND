@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Blood, DrinkingPreference, Hair, HairType, PhysicalStatus, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, SmokingPreference, User,BodyType
+from .models import Blood, CurrentLiving, DrinkingPreference, Hair, HairType, HomeType, PhysicalStatus, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, SmokingPreference, User,BodyType
 from django.contrib.auth.hashers import make_password
 from .models import Profile, User, MaritalStatus, Religion, Caste,GroomBrideInfo, Education, Employment, AnnualIncome,FamilyInformation, FamilyType, FamilyStatus, Occupation,Gender,CreateFor
 
@@ -274,5 +274,18 @@ class HairColorSerializer(serializers.ModelSerializer):
 class HairTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = HairType
-        fields = ["id", "name"]                      
+        fields = ["id", "name"]         
         
+        
+class HomeTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HomeType
+        fields = ["id", "name"]  
+
+class LivingSituationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurrentLiving
+        fields = ['id', 'name']      
+        
+        
+

@@ -54,4 +54,11 @@ urlpatterns = [
     path("fetch-hair-type/", FetchHairTypeOptions.as_view(), name="fetch-hair-type"),
     path("update-hair-type/", UpdateHairTypePreference.as_view(), name="update-hair-type"),
     path("update-appearance/", UpdateAppearance.as_view(), name="update-appearance"),
+    path("fetch-home-type/", FetchHomeTypeOptions.as_view(), name="fetch-home-type"),
+    path("update-home-type/", UpdateHomeTypePreference.as_view(), name="update-home-type"),
+    path("fetch-living-situation/", FetchLivingSituationOptions.as_view(), name="fetch-living-situation"),
+    path("update-living-situation/", UpdateLivingSituationPreference.as_view(), name="update-living-situation"),
+    path("update-mothername/", UpdateMotherName.as_view(), name="update-mothername"),
+    path("message-user/", MessageUser.as_view(), name="message-user"),
+
 ]

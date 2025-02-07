@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
-from .models import AnnualIncome, Blood, BodyType, Education, Employment, FamilyStatus, FamilyType, Hair, HairType, MaritalStatus, Occupation, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, User
-from .serializers import BloodGroupSerializer, BodySerializer, CreateForSerializer, EducationSerializer, EmployementSerializer, FamilyStatusSerializer, FamilyTypeSerializer, FetchFamilyInformationSerializer, FetchGroomBrideInfoSerializer, FetchProfileSerializer, FullProfileSerializer, GenderSerializer, HairColorSerializer, HairTypeSerializer, MaritalSerializer, OccupationSerializer, PoliticalViewSerializer, PolygamySerializer, PostSerializer, ReligiousnesServicesSerializer, ReligiousnessSerializer, SkinColorSerializer, UserProfileUpdateSerializer, UserSerializer
+from .models import AnnualIncome, Blood, BodyType, CurrentLiving, Education, Employment, FamilyStatus, FamilyType, Hair, HairType, HomeType, MaritalStatus, Occupation, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, User
+from .serializers import BloodGroupSerializer, BodySerializer, CreateForSerializer, EducationSerializer, EmployementSerializer, FamilyStatusSerializer, FamilyTypeSerializer, FetchFamilyInformationSerializer, FetchGroomBrideInfoSerializer, FetchProfileSerializer, FullProfileSerializer, GenderSerializer, HairColorSerializer, HairTypeSerializer, HomeTypeSerializer, LivingSituationSerializer, MaritalSerializer, OccupationSerializer, PoliticalViewSerializer, PolygamySerializer, PostSerializer, ReligiousnesServicesSerializer, ReligiousnessSerializer, SkinColorSerializer, UserProfileUpdateSerializer, UserSerializer
 from .models import Profile,GroomBrideInfo
 from .serializers import ProfileSerializer,GroomBrideInfoSerializer
 from .models import FamilyInformation,Gender,CreateFor
@@ -14,6 +14,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Profile, GroomBrideInfo, FamilyInformation,Religion, Caste
 from datetime import datetime
 from rest_framework.generics import UpdateAPIView
+from django.shortcuts import get_object_or_404
 
 
 
@@ -120,7 +121,6 @@ class CheckBasicDetailsView(APIView):
 class ProfileGroomBrideFamilyCreateView(APIView):
     def post(self, request, *args, **kwargs):
         user_id = request.data.get('user')
-        print(user_id)
 
         # Check if user already has a Profile
         if Profile.objects.filter(user=user_id).exists():
@@ -912,8 +912,115 @@ class UpdateAppearance(APIView):
         instance.appearance = appearance  
         instance.save()
 
-        return Response({"message": "Hair type preference updated successfully."}, status=status.HTTP_200_OK)         
+        return Response({"message": "Hair type preference updated successfully."}, status=status.HTTP_200_OK)   
+    
+    
+    
+class FetchHomeTypeOptions(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        home_type_options = HomeType.objects.all()
+        serialized_data = HomeTypeSerializer(home_type_options, many=True)
+        return Response({"options": serialized_data.data}, status=status.HTTP_200_OK)
+
+
+class UpdateHomeTypePreference(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return FamilyInformation.objects.get(user=self.request.user)  
+    
+
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        home_type_preference = request.data.get("home_type")
+        
+        print(home_type_preference)
+
+        if not home_type_preference:
+            return Response({"error": "Home type preference is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            home_type_option = HomeType.objects.get(name=home_type_preference)
+        except HomeType.DoesNotExist:
+            return Response({"error": "Invalid home type preference value"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.home_type = home_type_option  
+        instance.save()
+
+        return Response({"message": "Home type preference updated successfully."}, status=status.HTTP_200_OK)         
+    
+    
+    
+    
+              
+class FetchLivingSituationOptions(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        living_situations = CurrentLiving.objects.all()
+        serialized_data = LivingSituationSerializer(living_situations, many=True)
+        return Response({"options": serialized_data.data}, status=status.HTTP_200_OK)
+
+
+class UpdateLivingSituationPreference(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return FamilyInformation.objects.get(user=self.request.user)
+
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+        living_situation= request.data.get("living_situation")
+
+        if not living_situation:
+            return Response({"error": "Living situation preference is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            living_situation = CurrentLiving.objects.get(name=living_situation)
+        except CurrentLiving.DoesNotExist:
+            return Response({"error": "Invalid living situation value"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.current_living = living_situation
+        instance.save()
+
+        return Response({"message": "Living situation updated successfully."}, status=status.HTTP_200_OK)
+    
+    
+    
+class UpdateMotherName(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return FamilyInformation.objects.get(user=self.request.user)  
+
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        mother_name = request.data.get("mother_name")
+
+        if not mother_name:
+            return Response({"error": "mother name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.mother_name = mother_name  
+        instance.save()
+
+        return Response({"message": "mother name updated successfully."}, status=status.HTTP_200_OK)   
     
         
-    
-    
+
+class MessageUser(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.GET.get("user_id")  
+        
+        if not user_id:
+            return Response({"error": "User ID is required"}, status=400)
+
+        user = get_object_or_404(User, id=user_id)
+        serializer = UserSerializer(user)
+
+        return Response(serializer.data, status=200)
