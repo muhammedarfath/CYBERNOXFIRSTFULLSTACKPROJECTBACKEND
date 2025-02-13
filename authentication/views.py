@@ -119,33 +119,30 @@ class CheckBasicDetailsView(APIView):
 
    
 class ProfileGroomBrideFamilyCreateView(APIView):
+    
+    permission_classes = [IsAuthenticated]
+    
     def post(self, request, *args, **kwargs):
         user_id = request.data.get('user')
-
-        # Check if user already has a Profile
         if Profile.objects.filter(user=user_id).exists():
             return Response(
                 {'detail': 'User already has a profile.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if user already has a GroomBrideInfo
         if GroomBrideInfo.objects.filter(user=user_id).exists():
             return Response(
                 {'detail': 'User already has a GroomBrideInfo profile.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if user already has a FamilyInformation
         if FamilyInformation.objects.filter(user=user_id).exists():
             return Response(
                 {'detail': 'User already has a FamilyInformation profile.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Flatten the request data
         flattened_data = {
-            # Profile fields
             'user': request.data.get('user'),
             'name': request.data.get('basicdetails', {}).get('groomName'),
             'date_of_birth': self.parse_date_of_birth(request.data.get('basicdetails', {}).get('dateOfBirth')),

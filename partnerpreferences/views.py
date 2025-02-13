@@ -1,6 +1,6 @@
 from django.shortcuts import render
-from .serializers import BodyArtStatusSerializer, CookingSkillStatusSerializer, EatingStatusSerializer, ExerciseStatusSerializer, UserHobbySerializer
-from .models import BodyArt, CookingSkill, EatingHabit, Exercise, UserHobby
+from .serializers import BodyArtStatusSerializer, CookingSkillStatusSerializer, EatingStatusSerializer, ExerciseStatusSerializer, PartnerExpectationSerializer, UserHobbySerializer
+from .models import BodyArt, CookingSkill, EatingHabit, Exercise, PartnerExpectation, UserHobby
 from authentication.models import DrinkingPreference, MaritalStatus, PhysicalStatus, SmokingPreference
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -39,7 +39,28 @@ class FetchMaritalStatus(APIView):
         serializer = MaritalStatusSerializer(physical_statuses, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)  
     
-    
+class UpdatePartnerExpectation(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        print(f"Authenticated User: {user}")
+        
+        print(request.data)
+
+        try:
+            partner_expectation, created = PartnerExpectation.objects.get_or_create(user=user)
+            
+            serializer = PartnerExpectationSerializer(partner_expectation, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"message": "Partner expectation updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UpdateUserHobbyView(APIView):
@@ -47,9 +68,9 @@ class UpdateUserHobbyView(APIView):
 
     def patch(self, request, *args, **kwargs):
         user = request.user
+        print(request.data)
         try:
             user_hobby, created = UserHobby.objects.get_or_create(user=user)
-            print(request.data,"this is data")
 
             serializer = UserHobbySerializer(user_hobby, data=request.data, partial=True)
                         
@@ -62,6 +83,8 @@ class UpdateUserHobbyView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
         
 class FetchBodyArt(APIView):
     permission_classes = [IsAuthenticated]
@@ -90,7 +113,7 @@ class FetchExerciseStatus(APIView):
     def get(self, request):
         eating_statuses = Exercise.objects.all()  
         serializer = ExerciseStatusSerializer(eating_statuses, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)         
-                 
-        
+        return Response(serializer.data, status=status.HTTP_200_OK)     
+    
+    
     

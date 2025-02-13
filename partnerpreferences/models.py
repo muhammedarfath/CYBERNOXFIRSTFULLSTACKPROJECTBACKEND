@@ -24,10 +24,12 @@ class CookingSkill(models.Model):
     
     def __str__(self):
         return self.name
+    
+    
 class PartnerExpectation(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="partner_expectation")
-    age_preference = models.CharField(max_length=50, default="Does not matter")
-    height_preference = models.CharField(max_length=50, default="Does not matter")
+    age_preference = models.CharField(max_length=50,blank=True, default="Does not matter")
+    height_preference = models.CharField(max_length=50,blank=True, default="Does not matter")
     marital_status = models.ForeignKey(MaritalStatus, on_delete=models.SET_NULL, null=True, default=None)
     physical_status = models.ForeignKey(PhysicalStatus, on_delete=models.SET_NULL, null=True, default=None)
     drinking_preference = models.ForeignKey(DrinkingPreference, on_delete=models.SET_NULL, null=True, default=None)
@@ -40,7 +42,7 @@ class PartnerExpectation(models.Model):
     partner_country = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
-        return f"{self.user.username}'s Partner Expectation"
+        return f"{self.user.email}'s Partner Expectation"
     
     
 class UserHobby(models.Model):
@@ -59,5 +61,5 @@ class UserHobby(models.Model):
     cooking_skill = models.ForeignKey(CookingSkill, on_delete=models.SET_NULL, null=True, default=None)
 
     def __str__(self):
-        return f"Hobbies of {self.user.username}"
+        return f"Hobbies of {self.user.email}"
     

@@ -1,4 +1,4 @@
-from .models import BodyArt, CookingSkill, EatingHabit, Exercise, UserHobby
+from .models import BodyArt, CookingSkill, EatingHabit, Exercise, PartnerExpectation, UserHobby
 from rest_framework import serializers
 
 class UserHobbySerializer(serializers.ModelSerializer):
@@ -26,4 +26,9 @@ class EatingStatusSerializer(serializers.ModelSerializer):
 class ExerciseStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exercise
-        fields = ['id', 'name']                        
+        fields = ['id', 'name']    
+        
+class PartnerExpectationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PartnerExpectation
+        fields = "__all__"

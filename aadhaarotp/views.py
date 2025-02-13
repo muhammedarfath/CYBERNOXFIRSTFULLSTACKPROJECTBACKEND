@@ -6,7 +6,7 @@ import requests
 # Sandbox API Configuration
 SANDBOX_API_KEY = "key_live_ActHU7QgqxUJ82vwSZCwoDAOeujDUjgR"
 SANDBOX_BASE_URL = "https://api.sandbox.co.in/kyc/aadhaar/okyc"
-AUTH_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJhdWQiOiJBUEkiLCJyZWZyZXNoX3Rva2VuIjoiZXlKaGJHY2lPaUpJVXpVeE1pSjkuZXlKaGRXUWlPaUpCVUVraUxDSnpkV0lpT2lKbGJHOXlZVzFoZEhKcGJXOXVlVUJuYldGcGJDNWpiMjBpTENKaGNHbGZhMlY1SWpvaWEyVjVYMnhwZG1WZlFXTjBTRlUzVVdkeGVGVktPREoyZDFOYVEzZHZSRUZQWlhWcVJGVnFaMUlpTENKcGMzTWlPaUpoY0drdWMyRnVaR0p2ZUM1amJ5NXBiaUlzSW1WNGNDSTZNVGMzTURFek5EWXpOQ3dpYVc1MFpXNTBJam9pVWtWR1VrVlRTRjlVVDB0RlRpSXNJbWxoZENJNk1UY3pPRFU1T0RZek5IMC5VRjc5eFBRVnZiaENDMjA2ZWN6bVEyZXlGZ3llcm0ycEE4SnhZSmRsSDlNT3luc2dWbEFpYzQxNnBwTVdLYjYzSVZ5SDg3WVh4Q1BRaWN1dkV2dGJ6USIsInN1YiI6ImVsb3JhbWF0cmltb255QGdtYWlsLmNvbSIsImFwaV9rZXkiOiJrZXlfbGl2ZV9BY3RIVTdRZ3F4VUo4MnZ3U1pDd29EQU9ldWpEVWpnUiIsImlzcyI6ImFwaS5zYW5kYm94LmNvLmluIiwiZXhwIjoxNzM4Njg1MDM0LCJpbnRlbnQiOiJBQ0NFU1NfVE9LRU4iLCJpYXQiOjE3Mzg1OTg2MzR9.4Q4pNP7p_xgb5bWZc7Y3bslQwUlqlK_ZcyaLFq2XNRdExxp7ro-U_cyT92ucDAuAqiyIC_wghAwusU9YmoY2vg"
+AUTH_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJhdWQiOiJBUEkiLCJyZWZyZXNoX3Rva2VuIjoiZXlKaGJHY2lPaUpJVXpVeE1pSjkuZXlKaGRXUWlPaUpCVUVraUxDSnpkV0lpT2lKbGJHOXlZVzFoZEhKcGJXOXVlVUJuYldGcGJDNWpiMjBpTENKaGNHbGZhMlY1SWpvaWEyVjVYMnhwZG1WZlFXTjBTRlUzVVdkeGVGVktPREoyZDFOYVEzZHZSRUZQWlhWcVJGVnFaMUlpTENKcGMzTWlPaUpoY0drdWMyRnVaR0p2ZUM1amJ5NXBiaUlzSW1WNGNDSTZNVGMzTURrMk1Ea3lOeXdpYVc1MFpXNTBJam9pVWtWR1VrVlRTRjlVVDB0RlRpSXNJbWxoZENJNk1UY3pPVFF5TkRreU4zMC5VUlhIdmtQRkx5ckdGWnRQUG50VHM4TFZZbWhVOHNnd3dMU05lRkQ5TUpvMWRBaUdxeXNtTjF6TDJVTUVueHR0VjU5eEh4WGJ5eVdEWVFScy1MT1VvZyIsInN1YiI6ImVsb3JhbWF0cmltb255QGdtYWlsLmNvbSIsImFwaV9rZXkiOiJrZXlfbGl2ZV9BY3RIVTdRZ3F4VUo4MnZ3U1pDd29EQU9ldWpEVWpnUiIsImlzcyI6ImFwaS5zYW5kYm94LmNvLmluIiwiZXhwIjoxNzM5NTExMzI3LCJpbnRlbnQiOiJBQ0NFU1NfVE9LRU4iLCJpYXQiOjE3Mzk0MjQ5Mjd9.S6Dprs7NgszWIhvVxCURepXau7oC--Px4IAN9mvlqcPWCBI5cMP2CozPMGI69vIu2ntvf19nH4Utzbilh5SWRA"
 
 
 class SendOtpView(APIView):
@@ -61,8 +61,8 @@ class VerifyOtpView(APIView):
             
             payload = {
                 "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
-                "otp": otp,
-                "reference_id": ref_id
+                "otp": str(otp),
+                "reference_id": str(ref_id)
             }
             
             headers = {
@@ -75,11 +75,10 @@ class VerifyOtpView(APIView):
             
             response = requests.post(url, json=payload, headers=headers)
             
-            print(response,"check this")
-            
+
             result = response.json()
             
-            if response.status_code == 200 and result.get("success"):
+            if response.status_code == 200:
                 return Response({"message": "OTP verified successfully", "aadhaar_data": result.get("data")})
             else:
                 return Response({"message": result.get("message", "Invalid OTP")}, status=400)

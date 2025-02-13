@@ -7,6 +7,9 @@ urlpatterns = [
     path('fetch-drinking-status/', FetchDrinkingStatus.as_view(), name='fetch-drinking-status'),
     path('fetch-smoking-status/', FetchSmokingStatus.as_view(), name='fetch-smoking-status'),
     path('fetch-marital-status/', FetchMaritalStatus.as_view(), name='fetch-marital-status'),
+    path('update-partner-expectation/', UpdatePartnerExpectation.as_view(), name='update-partner-expectation'),
+
+    
     path('update_hobbies/', UpdateUserHobbyView.as_view(), name='update_hobbies'),
     path('fetch-body-art/', FetchBodyArt.as_view(), name='fetch-body-art'),
     path('fetch-cooking-status/', FetchCookingStatus.as_view(), name='fetch-cooking-status'),

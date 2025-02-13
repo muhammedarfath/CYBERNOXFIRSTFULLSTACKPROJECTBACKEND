@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .models import Message
 
 from authentication.models import InterestSent, Notification
 
@@ -7,3 +8,4 @@ from authentication.models import InterestSent, Notification
 
 admin.site.register(Notification)
 admin.site.register(InterestSent)
+admin.site.register(Message)
