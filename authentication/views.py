@@ -16,6 +16,11 @@ from datetime import datetime
 from rest_framework.generics import UpdateAPIView
 from django.shortcuts import get_object_or_404
 
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.contrib.auth.tokens import default_token_generator
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 class LoginView(APIView):
@@ -45,6 +50,56 @@ class LoginView(APIView):
             "email": user.email,
             "userid":user.id,
         }, status=status.HTTP_200_OK)
+        
+        
+        
+class ForgotPasswordView(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        user = get_object_or_404(User, email=email)
+        
+        # Generate reset token
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
+
+        # Send email
+        send_mail(
+            subject="Password Reset Request",
+            message = f"""
+            Hello {user.email},
+
+            We received a request to reset your password. If you didn't request this, you can ignore this email.
+
+            Click the link below to reset your password:
+            {reset_link}
+
+            If you have any issues, contact our support team.
+
+            Best Regards,  
+            The YourWebsite Team  
+            """,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+        )
+
+        return Response({"message": "Password reset link sent to email."}, status=status.HTTP_200_OK)
+
+class ResetPasswordView(APIView):
+    def post(self, request, uidb64, token):
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({"error": "Invalid link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not default_token_generator.check_token(user, token):
+            return Response({"error": "Invalid or expired token."}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_password = request.data.get("password")
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK) 
 
 
 class GenderView(APIView):
@@ -1021,3 +1076,5 @@ class MessageUser(APIView):
         serializer = UserSerializer(user)
 
         return Response(serializer.data, status=200)
+    
+    

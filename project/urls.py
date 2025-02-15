@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('authentication.urls')),
     path('partner/', include('partnerpreferences.urls')),
-    path('aadhaarotp/', include('aadhaarotp.urls')), ]
+    path('aadhaarotp/', include('aadhaarotp.urls')), 
+    path('socketconnection/', include('socketconnection.urls')), ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
