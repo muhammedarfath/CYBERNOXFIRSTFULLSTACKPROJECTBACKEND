@@ -4,8 +4,8 @@ from authentication.serializers import UserSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Message
-from .serializers import MessageSerializer
+from .models import Message, SubscriptionPlan
+from .serializers import MessageSerializer, NotificationSerializer
 from django.db.models import Q  
 
 class UserMessagesView(APIView):
@@ -49,5 +49,20 @@ class UnreadNotification(APIView):
 
     def get(self, request):
         user = request.user
-        unread_count = Notification.objects.filter(user=user, is_read=False).count()
-        return Response({"unread_count": unread_count}, status=200)
+        try:
+            subscription = user.subscription
+            has_active_subscription = subscription.is_subscription_active()
+        except SubscriptionPlan.DoesNotExist:
+            has_active_subscription = False
+            
+        received_notifications = Notification.objects.filter(user=user, is_read=False).order_by('-timestamp')
+        sent_notifications = Notification.objects.filter(sender=user, is_read=False).order_by('-timestamp')
+
+        response_data = {
+            "has_active_subscription": has_active_subscription,
+            "unread_count": received_notifications.count(),
+            "received_notifications": NotificationSerializer(received_notifications, many=True).data,
+            "sent_notifications": NotificationSerializer(sent_notifications, many=True).data
+        }
+        
+        return Response(response_data, status=200)
