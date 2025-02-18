@@ -1,3 +1,4 @@
+from partnerpreferences.models import PartnerExpectation, UserHobby
 from rest_framework import generics, status
 from rest_framework.response import Response
 from .models import AnnualIncome, Blood, BodyType, CurrentLiving, Education, Employment, FamilyStatus, FamilyType, Hair, HairType, HomeType, MaritalStatus, Occupation, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, User
@@ -354,19 +355,25 @@ class FetchProfileDetails(APIView):
 
     def get(self, request):
         try:
-            # Get the Profile instance for the authenticated user
             user_profile = Profile.objects.get(user=request.user)
-            # Get GroomBrideInfo and FamilyInformation
             groom_bride_info = GroomBrideInfo.objects.get(user=request.user)
             family_info = FamilyInformation.objects.get(user=request.user)
-
+            
+            try:
+                user_hobby = UserHobby.objects.get(user=request.user)
+                partner_preferences = PartnerExpectation.objects.get(user=request.user)
+            except UserHobby.DoesNotExist:
+                user_hobby = None  
+                partner_preferences = None
+            
             full_profile_data = {
                 'user_profile': user_profile,
                 'groom_bride_info': groom_bride_info,
-                'family_info': family_info
+                'family_info': family_info,
+                'user_hobby': user_hobby,
+                'partner_preferences' :partner_preferences,
             }
 
-            # Serialize the combined data using FullProfileSerializer
             serializer = FullProfileSerializer(full_profile_data)
             return Response(serializer.data, status=200)
         
@@ -376,8 +383,7 @@ class FetchProfileDetails(APIView):
             return Response({"error": "GroomBrideInfo not found"}, status=404)
         except FamilyInformation.DoesNotExist:
             return Response({"error": "FamilyInformation not found"}, status=404)
-
-
+        
 class PostCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -554,8 +560,16 @@ class UpdateLocationView(UpdateAPIView):
 
         instance.save()
 
-        return Response({"message": "Location updated successfully."}, status=status.HTTP_200_OK)    
-    
+        response_data = {
+            "message": "Location updated successfully.",
+            "updated_location": {
+                "country": instance.present_country,
+                "state": instance.present_state,
+                "city": instance.present_city
+            }
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
     
     
 class UpdateSecondaryView(UpdateAPIView):    

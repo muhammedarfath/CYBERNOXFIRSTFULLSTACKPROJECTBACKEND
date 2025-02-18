@@ -1,7 +1,7 @@
 from django.shortcuts import render
-from .serializers import BodyArtStatusSerializer, CookingSkillStatusSerializer, EatingStatusSerializer, ExerciseStatusSerializer, PartnerExpectationSerializer, UserHobbySerializer
+from .serializers import BodyArtStatusSerializer, CookingSkillStatusSerializer, EatingStatusSerializer, ExerciseStatusSerializer, UserHobbySerializer
 from .models import BodyArt, CookingSkill, EatingHabit, Exercise, PartnerExpectation, UserHobby
-from authentication.models import DrinkingPreference, MaritalStatus, PhysicalStatus, SmokingPreference
+from authentication.models import AnnualIncome, DrinkingPreference, Education, Employment, MaritalStatus, PhysicalStatus, SmokingPreference
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from authentication.serializers import DrinkingStatusSerializer, PhysicalStatusSerializer,SmokingStatusSerializer,MaritalStatusSerializer
@@ -42,33 +42,55 @@ class FetchMaritalStatus(APIView):
 class UpdatePartnerExpectation(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, *args, **kwargs):
+    def post(self, request):
         user = request.user
-        print(f"Authenticated User: {user}")
+        data = request.data
         
-        print(request.data)
+        # Get or create the partner expectation object for the current user
+        partner_expectation, created = PartnerExpectation.objects.get_or_create(user=user)
 
-        try:
-            partner_expectation, created = PartnerExpectation.objects.get_or_create(user=user)
-            
-            serializer = PartnerExpectationSerializer(partner_expectation, data=request.data, partial=True)
-            
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"message": "Partner expectation updated successfully", "data": serializer.data}, status=status.HTTP_200_OK)
+        # Update simple fields
+        if 'age_preference' in data:
+            partner_expectation.age_preference = data['age_preference']
+        
+        if 'height_preference' in data:
+            partner_expectation.height_preference = data['height_preference']
+        
+        if 'mother_tongue' in data:
+            partner_expectation.mother_tongue = data['mother_tongue']
+        
+        if 'partner_district' in data:
+            partner_expectation.partner_district = data['partner_district']
+        
+        if 'partner_country' in data:
+            partner_expectation.partner_country = data['partner_country']
 
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        def update_many_to_many_field(field_name, model):
+            if field_name in data:
+                ids = data.get(field_name, [])  # Get IDs list from request
+                instances = model.objects.filter(id__in=ids)  # Get existing records
+                getattr(partner_expectation, field_name).set(instances)  # Update field
 
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Updating ManyToMany Fields
+        update_many_to_many_field('marital_status', MaritalStatus)
+        update_many_to_many_field('physical_status', PhysicalStatus)
+        update_many_to_many_field('drinking_preference', DrinkingPreference)
+        update_many_to_many_field('smoking_preference', SmokingPreference)
+        update_many_to_many_field('education', Education)
+        update_many_to_many_field('profession', Employment)
+        update_many_to_many_field('annual_income', AnnualIncome)
 
+        # Save the updated partner expectation
+        partner_expectation.save()
 
+        return Response({'message': 'Partner expectation updated successfully'}, status=status.HTTP_200_OK) 
+    
+              
 class UpdateUserHobbyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, *args, **kwargs):
         user = request.user
-        print(request.data)
         try:
             user_hobby, created = UserHobby.objects.get_or_create(user=user)
 
@@ -84,8 +106,6 @@ class UpdateUserHobbyView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-        
 class FetchBodyArt(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):

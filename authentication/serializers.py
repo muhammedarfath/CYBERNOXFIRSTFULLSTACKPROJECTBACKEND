@@ -1,3 +1,4 @@
+from partnerpreferences.serializers import PartnerExpectationSerializer, UserHobbySerializer
 from rest_framework import serializers
 from .models import Blood, CurrentLiving, DrinkingPreference, Hair, HairType, HomeType, PhysicalStatus, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, SmokingPreference, User,BodyType
 from django.contrib.auth.hashers import make_password
@@ -14,7 +15,7 @@ class CreateForSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
         
 class UserSerializer(serializers.ModelSerializer):
-    gender = serializers.PrimaryKeyRelatedField(queryset=Gender.objects.all(), required=False)  # Assuming gender is a FK
+    gender = serializers.PrimaryKeyRelatedField(queryset=Gender.objects.all(), required=False) 
     unique_id = serializers.ReadOnlyField() 
     
     class Meta:
@@ -142,18 +143,29 @@ class FetchProfileSerializer(serializers.ModelSerializer):
     caste = serializers.StringRelatedField()
     mother_tongue = serializers.StringRelatedField()
     body_type = serializers.StringRelatedField()
-
+    religiousness = serializers.StringRelatedField()
+    religious_services = serializers.StringRelatedField()
+    polygamy = serializers.StringRelatedField()
+    political_View = serializers.StringRelatedField()
+    skin_color = serializers.StringRelatedField()
+    blood_group = serializers.StringRelatedField()
+    hair_color = serializers.StringRelatedField()
+    hair_type = serializers.StringRelatedField()
+    appearance = serializers.StringRelatedField()
+    
     class Meta:
         model = Profile
-        fields = ['user','name', 'date_of_birth','languages_spoken', 'marital_status', 'religion', 'caste', 'mother_tongue', 'height', 
-                  'weight', 'body_type', 'physical_challenges', 'physical_status']          
+        fields = ['user','name', 'date_of_birth','languages_spoken','hair_color','hair_type','appearance', 'marital_status', 'religion', 'caste', 'mother_tongue', 'height', 
+                  'weight', 'body_type', 'skin_color','blood_group','physical_challenges','religiousness','religious_services','polygamy','political_View','physical_status']          
                         
 class FetchFamilyInformationSerializer(serializers.ModelSerializer):
     family_type = serializers.StringRelatedField()  
     family_status = serializers.StringRelatedField()  
     father_occupation = serializers.StringRelatedField()  
     mother_occupation = serializers.StringRelatedField()  
-
+    home_type = serializers.StringRelatedField() 
+    current_living = serializers.StringRelatedField() 
+    
     class Meta:
         model = FamilyInformation
         fields = [
@@ -168,6 +180,9 @@ class FetchFamilyInformationSerializer(serializers.ModelSerializer):
             'married_brothers',
             'married_sisters',
             'family_description',
+            'mother_name',
+            'home_type',
+            'current_living'
         ]          
                                      
 class FetchGroomBrideInfoSerializer(serializers.ModelSerializer):
@@ -188,9 +203,11 @@ class FullProfileSerializer(serializers.Serializer):
     user_profile = FetchProfileSerializer()
     groom_bride_info = FetchGroomBrideInfoSerializer()  
     family_info = FetchFamilyInformationSerializer()
+    user_hobby = UserHobbySerializer()
+    partner_preferences = PartnerExpectationSerializer()
 
     class Meta:
-        fields = ['user_profile', 'groom_bride_info', 'family_info']   
+        fields = ['user_profile', 'groom_bride_info', 'family_info','partner_preferences']   
         
 class PostSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
