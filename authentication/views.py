@@ -1092,3 +1092,18 @@ class MessageUser(APIView):
         return Response(serializer.data, status=200)
     
     
+class Search(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        unique_id = request.query_params.get("profileId")
+        if not unique_id:
+            return Response({"error": "Unique ID is required"}, status=400)
+
+        try:
+            user = User.objects.get(unique_id=unique_id)  
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=200)
+        except User.DoesNotExist:  
+            return Response({"error": "User not found"}, status=404)
+    

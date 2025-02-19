@@ -62,5 +62,6 @@ urlpatterns = [
     path("update-living-situation/", UpdateLivingSituationPreference.as_view(), name="update-living-situation"),
     path("update-mothername/", UpdateMotherName.as_view(), name="update-mothername"),
     path("message-user/", MessageUser.as_view(), name="message-user"),
+    path("search/", Search.as_view(), name="search"),
 
 ]
