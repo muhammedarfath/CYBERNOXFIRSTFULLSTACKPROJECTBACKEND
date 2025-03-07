@@ -236,6 +236,9 @@ class Post(models.Model):
 
     def __str__(self):
         return self.content
+    
+    
+
 
     
 class Profile(models.Model):
@@ -259,9 +262,8 @@ class Profile(models.Model):
     weight = models.FloatField()
     body_type = models.ForeignKey(BodyType, on_delete=models.SET_NULL, null=True, blank=True)
     physical_challenges = models.BooleanField(default=False)
-    physical_status = models.CharField(max_length=255, null=True, blank=True)
     languages_spoken = models.CharField(max_length=500, null=True, blank=True)
-
+    physical_status = models.ForeignKey(PhysicalStatus, on_delete=models.SET_NULL, null=True, blank=True)
     def __str__(self):
         return self.name
     
@@ -289,8 +291,9 @@ class GroomBrideInfo(models.Model):
     income = models.ForeignKey(AnnualIncome, on_delete=models.SET_NULL, null=True, blank=True)
     college_name = models.CharField(max_length=255, blank=True, null=True)
 
+
     def __str__(self):
-        return f"{self.occupation} from {self.city}, {self.state}, {self.country}"
+        return f"{self.user.email}'s Family"
     
     
 class FamilyInformation(models.Model):
@@ -328,6 +331,19 @@ class UserVerification(models.Model):
     
     def __str__(self):
         return f"Verification for {self.user.username}"
-    
+ 
+ 
+class SavedProfile(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_profiles")
+    saved_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="saved_by_users")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'saved_user')  
+
+    def __str__(self):
+        return f"{self.user.email} saved {self.saved_user.email}"    
   
+    
+    
     

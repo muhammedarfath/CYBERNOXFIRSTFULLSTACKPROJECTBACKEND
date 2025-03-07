@@ -1,10 +1,15 @@
 import json
+from socketconnection.serializers import MessageSerializer
 from socketconnection.models import Message
-from authentication.models import Notification
+from authentication.models import InterestSent, Notification
 from channels.generic.websocket import WebsocketConsumer
 from django.contrib.auth import get_user_model
 from asgiref.sync import async_to_sync
 from django.db.models import Q
+from asgiref.sync import sync_to_async
+import logging
+from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
 
 
 User = get_user_model()
@@ -20,6 +25,18 @@ class NotificationConsumer(WebsocketConsumer):
         }
 
         self.send_notification(self.user, content)
+        
+    def fetch_unread_messages(self, data):
+        messages = Message.objects.filter(receiver=self.user, is_read=False)
+        
+        content = {
+            'option': 'fetch_unread_messages',
+            'messages': [self.chat_to_json(message) for message in messages]
+        }
+
+        self.send_notification(self.user, content)
+
+            
 
     def interest_sent(self, data):
         user_id = data['userId']
@@ -28,16 +45,30 @@ class NotificationConsumer(WebsocketConsumer):
         except User.DoesNotExist:
             return
 
-        message = f"{self.user.email} has shown interest in you!"
+        # Create a notification for the user being liked
+        message = f"You have received interest from {self.user.email}!"
+        
+        
+        notification_exists = Notification.objects.filter(
+        user=user, sender=self.user, message=message
+        ).exists()
+        
+        
+        if not notification_exists:
+            notification = Notification.objects.create(user=user, sender=self.user, message=message)
 
-        notification = Notification.objects.create(user=user, sender=self.user, message=message)
+            # Update or create InterestSent object where the logged-in user is the owner
+            interest_sent_obj, created = InterestSent.objects.get_or_create(user=self.user)
+            interest_sent_obj.interest.add(user)  # Add the other user to the interest field
+            interest_sent_obj.save()
 
-        content = {
-            'option': 'interest_sent',
-            'notification': self.message_to_json(notification)
-        }
+            content = {
+                'option': 'interest_sent',
+                'notification': self.message_to_json(notification),
+                'interest_count': interest_sent_obj.like_count()  # Updated interest count
+            }
 
-        self.send_notification(user, content)
+            self.send_notification(user, content)
 
     def message_to_json(self, notification):
         return {
@@ -45,6 +76,13 @@ class NotificationConsumer(WebsocketConsumer):
             'message': notification.message,
             'timestamp': str(notification.timestamp)
         }
+        
+    def chat_to_json(self, message):
+        return {
+            'user': message.author.email,
+            'message': message.content,
+            'timestamp': str(message.timestamp)
+        }    
 
     def send_notification(self, recipient, content):
         recipient_group_name = f"user_{recipient.id}"
@@ -60,7 +98,8 @@ class NotificationConsumer(WebsocketConsumer):
 
     options = {
         'interest_sent': interest_sent,
-        'fetch_unread_notification': fetch_unread_notification
+        'fetch_unread_notification': fetch_unread_notification,
+        'fetch_unread_messages':fetch_unread_messages,
     }
 
     def connect(self):
@@ -87,100 +126,87 @@ class NotificationConsumer(WebsocketConsumer):
             
             
             
-class ChatConsumer(WebsocketConsumer):
+class ChatConsumer(AsyncWebsocketConsumer):
     
-    def new_messages(self, data):
-        user_id = data['userId']
-        message = data['message']
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return
+    async def connect(self):
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
 
-        message = Message.objects.create(author=user, sender=self.user, content=message)
+        sender_id, recipient_id = self.room_name.split('_')
 
-        content = {
-            'option': 'new_messages',
-            'messages': [self.message_to_json(message)]  
-        }
 
-        self.send_notification(user, content)
+        #creating room 
+        self.room_group_name = f"chat_{min(sender_id, recipient_id)}_{max(sender_id, recipient_id)}"
 
-    
-    def message_to_json(self,message):
-        return {
-            'author':message.author.email,
-            'sender':message.sender.email,
-            'content':message.content,
-            'timestamp':str(message.timestamp)
-            
-            }  
-    
-    def send_notification(self, recipient, content):
-        recipient_group_name = f"user_{recipient.id}"
-        async_to_sync(self.channel_layer.group_send)(
-            recipient_group_name, {
-                "type": "chat_message",
-                "message": content
-            }
+        #join the room
+        await(self.channel_layer.group_add)(
+            self.room_group_name,
+            self.channel_name
         )
-    
-    def chat_message(self, event):
-        self.send(text_data=json.dumps(event["message"]))
-    
-    
-    
-    def fetch_messages(self, data):
-        user_id = data.get('userId')  
-        if not user_id:
-            return
-
-        messages = Message.objects.filter(
-            (Q(author=self.user) & Q(sender_id=user_id)) |  
-            (Q(author_id=user_id) & Q(sender=self.user))   
-        ).order_by('timestamp')[:100]
-
-        content = {
-            'option': 'fetch_messages',
-            'messages': self.messages_to_json(messages)
-        }
-        self.send_message(content)
+        await self.accept()
         
         
-    def messages_to_json(self,messages):
-        result = []
-        for message in messages:
-            result.append(self.message_to_json(message))
-        return result     
-    
-    def send_message(self,message):
-        self.send(text_data=json.dumps( message))    
+    async def disconnect(self, code):   
+        #Leave the room
+        await(self.channel_layer.group_discard)(
+            self.room_group_name,
+            self.channel_name
+        )
+        await super().disconnect(code)   
         
-    options = {
-        'new_messages': new_messages,
-        'fetch_messages': fetch_messages
-    }
-    
-    def connect(self):
-        self.user = self.scope["user"]
         
-        if self.user.is_authenticated:
-            self.room_group_name = f"user_{self.user.id}"
-            async_to_sync(self.channel_layer.group_add)(
-                self.room_group_name, self.channel_name
-            )
-            self.accept()
-        else:
-            self.close()
+        
+    async def receive(self, text_data):
 
 
-    def disconnect(self, close_code):
-        if self.user.is_authenticated:
-            self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        # Receive message from WebSocket
+        text_data_json = json.loads(text_data)
+        print(text_data_json,"new one")
+        text = text_data_json['text']
+        sender = text_data_json['sender']
+        recipient_id = self.room_name.split('_')[1]
+        chat_message = await self.save_chat_message(text , sender , recipient_id)
 
-    def receive(self, text_data):
-        data = json.loads(text_data)
-        if data['option'] in self.options:
-            self.options[data['option']](self, data)
+        if chat_message and not chat_message.is_read:
+            chat_message.mark_as_read()
+
+        messages = await self.get_messages(sender , recipient_id)
+        # Send message to room group
+        await(self.channel_layer.group_send)(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'messages': messages,
+                'sender': sender,
+                'message':text
+            }
+        )         
+    
+    async def chat_message(self, event):
+        # Receive message from room group
+        messages = event['messages']
+        sender = event['sender']
+        message = event['message']
+
+        # Send message to WebSocket
+        await self.send(text_data=json.dumps({
+            'messages': messages,
+            'sender': sender,
+            'message':message,
+        }))
+
+
+
+
+    @database_sync_to_async
+    def save_chat_message(self , message , sender_id , recipient_id):
+        Message.objects.create(message = message , sender_id = sender_id ,receiver_id = recipient_id)  
+        
+    @database_sync_to_async
+    def get_messages(self,sender ,recipient_id ):
+
+        messages=[]
+        for instance in Message.objects.filter(sender__in =[sender , recipient_id] , receiver__in = [sender,recipient_id]):
+            messages=MessageSerializer(instance).data
             
-            
+        return messages              
+    

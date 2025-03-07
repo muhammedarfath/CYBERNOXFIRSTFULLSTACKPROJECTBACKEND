@@ -1,7 +1,8 @@
+from partnerpreferences.serializers import PartnerExpectationSerializer, UserHobbySerializer
 from partnerpreferences.models import PartnerExpectation, UserHobby
 from rest_framework import generics, status
 from rest_framework.response import Response
-from .models import AnnualIncome, Blood, BodyType, CurrentLiving, Education, Employment, FamilyStatus, FamilyType, Hair, HairType, HomeType, MaritalStatus, Occupation, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, User
+from .models import AnnualIncome, Blood, BodyType, CurrentLiving, Education, Employment, FamilyStatus, FamilyType, Hair, HairType, HomeType, InterestSent, MaritalStatus, Notification, Occupation, Political, Polygamy, Post, ReligiousServices, Religiousness, SavedProfile, Skin, User
 from .serializers import BloodGroupSerializer, BodySerializer, CreateForSerializer, EducationSerializer, EmployementSerializer, FamilyStatusSerializer, FamilyTypeSerializer, FetchFamilyInformationSerializer, FetchGroomBrideInfoSerializer, FetchProfileSerializer, FullProfileSerializer, GenderSerializer, HairColorSerializer, HairTypeSerializer, HomeTypeSerializer, LivingSituationSerializer, MaritalSerializer, OccupationSerializer, PoliticalViewSerializer, PolygamySerializer, PostSerializer, ReligiousnesServicesSerializer, ReligiousnessSerializer, SkinColorSerializer, UserProfileUpdateSerializer, UserSerializer
 from .models import Profile,GroomBrideInfo
 from .serializers import ProfileSerializer,GroomBrideInfoSerializer
@@ -13,15 +14,17 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .models import Profile, GroomBrideInfo, FamilyInformation,Religion, Caste
-from datetime import datetime
+from datetime import date, datetime
 from rest_framework.generics import UpdateAPIView
 from django.shortcuts import get_object_or_404
+from django.db.models import Q,Count
 
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.tokens import default_token_generator
 from django.conf import settings
 from django.core.mail import send_mail
+from django.http import JsonResponse
 
 
 class LoginView(APIView):
@@ -197,10 +200,10 @@ class ProfileGroomBrideFamilyCreateView(APIView):
                 {'detail': 'User already has a FamilyInformation profile.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+                
         flattened_data = {
             'user': request.data.get('user'),
-            'name': request.data.get('basicdetails', {}).get('groomName'),
+            'name': request.data.get('basicdetails', {}).get('groomBride'),
             'date_of_birth': self.parse_date_of_birth(request.data.get('basicdetails', {}).get('dateOfBirth')),
             'marital_status': request.data.get('basicdetails', {}).get('selectedMarital'),
             'religion': request.data.get('basicdetails', {}).get('selectedReligion'),
@@ -265,12 +268,12 @@ class ProfileGroomBrideFamilyCreateView(APIView):
 
     def parse_date_of_birth(self, date_str):
         try:
-            return datetime.strptime(date_str, "%Y-%B-%d").date()
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00")).date()
         except ValueError:
-            raise ValueError("Invalid date format. Please use 'YYYY-Month-DD'.")
+            raise ValueError("Invalid date format. Please use 'YYYY-MM-DD'.")
 
 class ReligionListView(APIView):
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [permissions.AllowAny]  
     def get(self, request):
         religions = Religion.objects.all()
         serializer = ReligionSerializer(religions, many=True)
@@ -284,7 +287,7 @@ class CasteListView(APIView):
         return Response(serializer.data) 
     
 class MaritalListView(APIView):
-    permission_classes = [IsAuthenticated]  
+    permission_classes = [permissions.AllowAny]  
     def get(self, request):
         maritals = MaritalStatus.objects.all()
         serializer = MaritalSerializer(maritals, many=True)
@@ -349,7 +352,6 @@ class AnnualIncomeListView(APIView):
     
     
     
-    
 class FetchProfileDetails(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -358,32 +360,56 @@ class FetchProfileDetails(APIView):
             user_profile = Profile.objects.get(user=request.user)
             groom_bride_info = GroomBrideInfo.objects.get(user=request.user)
             family_info = FamilyInformation.objects.get(user=request.user)
-            
+
+            # Retrieve saved profiles
+            saved_profiles = SavedProfile.objects.filter(user=request.user)
+
+            # Collect full profile details for saved profiles
+            saved_profiles_data = []
+            for saved in saved_profiles:
+                saved_user = saved.saved_user
+                saved_user_profile = Profile.objects.filter(user=saved_user).first()
+                saved_groom_bride_info = GroomBrideInfo.objects.filter(user=saved_user).first()
+                saved_family_info = FamilyInformation.objects.filter(user=saved_user).first()
+                saved_user_posts = Post.objects.filter(user=saved_user)
+
+                saved_user_data = {
+                    "user_profile": FetchProfileSerializer(saved_user_profile).data if saved_user_profile else None,
+                    "groom_bride_info": FetchGroomBrideInfoSerializer(saved_groom_bride_info).data if saved_groom_bride_info else None,
+                    "family_info": FetchFamilyInformationSerializer(saved_family_info).data if saved_family_info else None,
+                    "posts": PostSerializer(saved_user_posts, many=True).data if saved_user_posts.exists() else [],
+                }
+                saved_profiles_data.append(saved_user_data)
+
+            try:
+                partner_preferences = PartnerExpectation.objects.get(user=request.user)
+            except PartnerExpectation.DoesNotExist:
+                partner_preferences = None
+
             try:
                 user_hobby = UserHobby.objects.get(user=request.user)
-                partner_preferences = PartnerExpectation.objects.get(user=request.user)
             except UserHobby.DoesNotExist:
-                user_hobby = None  
-                partner_preferences = None
-            
+                user_hobby = None
+
+            # Compile the full profile data
             full_profile_data = {
-                'user_profile': user_profile,
-                'groom_bride_info': groom_bride_info,
-                'family_info': family_info,
-                'user_hobby': user_hobby,
-                'partner_preferences' :partner_preferences,
+                'user_profile': FetchProfileSerializer(user_profile).data,
+                'groom_bride_info': FetchGroomBrideInfoSerializer(groom_bride_info).data,
+                'family_info': FetchFamilyInformationSerializer(family_info).data,
+                'user_hobby': UserHobbySerializer(user_hobby).data if user_hobby else None,
+                'partner_preferences': PartnerExpectationSerializer(partner_preferences).data if partner_preferences else None,
+                'saved_profiles': saved_profiles_data,
             }
 
-            serializer = FullProfileSerializer(full_profile_data)
-            return Response(serializer.data, status=200)
-        
+            return Response(full_profile_data, status=200)
+
         except Profile.DoesNotExist:
             return Response({"error": "Profile not found"}, status=404)
         except GroomBrideInfo.DoesNotExist:
             return Response({"error": "GroomBrideInfo not found"}, status=404)
         except FamilyInformation.DoesNotExist:
             return Response({"error": "FamilyInformation not found"}, status=404)
-        
+
 class PostCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -436,12 +462,17 @@ class FetchUsers(APIView):
         user = request.user
         gender = user.gender
 
-        if gender and gender.name == 'Male': 
+        # Filter users by opposite gender
+        if gender and gender.name == 'Male':
             users_data = User.objects.filter(gender__name='Female').order_by('-date_joined')
-        elif gender and gender.name == 'Female':  
+        elif gender and gender.name == 'Female':
             users_data = User.objects.filter(gender__name='Male').order_by('-date_joined')
         else:
             users_data = User.objects.none()
+
+        # Exclude users already interested by the logged-in user
+        interested_users = InterestSent.objects.filter(user=user).values_list('interest', flat=True)
+        users_data = users_data.exclude(id__in=interested_users)
 
         serialized_data = []
         for user_obj in users_data:
@@ -449,23 +480,20 @@ class FetchUsers(APIView):
             groom_bride_info = GroomBrideInfo.objects.filter(user=user_obj).first()
             family_info = FamilyInformation.objects.filter(user=user_obj).first()
             user_posts = Post.objects.filter(user=user_obj)
-
+            user_hobbies = UserHobby.objects.filter(user=user_obj).first()
 
             data = {
                 "user_profile": FetchProfileSerializer(user_profile).data if user_profile else None,
                 "groom_bride_info": FetchGroomBrideInfoSerializer(groom_bride_info).data if groom_bride_info else None,
                 "family_info": FetchFamilyInformationSerializer(family_info).data if family_info else None,
-                "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else None,  # Serialize posts
-
+                "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else None,
+                "hobbies": UserHobbySerializer(user_hobbies).data if user_hobbies else None,
             }
 
             serialized_data.append(data)
 
         return Response(serialized_data)
     
-
-
-
 class UpdateLanguagesView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1092,18 +1120,167 @@ class MessageUser(APIView):
         return Response(serializer.data, status=200)
     
     
-class Search(APIView):
+class SavedProfileViewSet(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        unique_id = request.query_params.get("profileId")
-        if not unique_id:
-            return Response({"error": "Unique ID is required"}, status=400)
+    def post(self, request):
+        saved_user_id = request.data.get("saved_user_id")
+        if not saved_user_id:
+            return Response({"error": "saved_user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user = User.objects.get(unique_id=unique_id)  
-            serializer = UserSerializer(user)
-            return Response(serializer.data, status=200)
-        except User.DoesNotExist:  
-            return Response({"error": "User not found"}, status=404)
+            saved_user = User.objects.get(id=saved_user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        saved_profile, created = SavedProfile.objects.get_or_create(user=request.user, saved_user=saved_user)
+
+        if created:
+            return Response({"message": "Profile saved successfully"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Profile already saved"}, status=status.HTTP_200_OK)
+
+    def delete(self, request):
+        saved_user_id = request.data.get("saved_user_id")
+        print(saved_user_id)
+        try:
+            saved_profile = SavedProfile.objects.get(user=request.user, saved_user_id=saved_user_id)
+            saved_profile.delete()
+            return Response({"message": "Profile unsaved successfully"}, status=status.HTTP_200_OK)
+        except SavedProfile.DoesNotExist:
+            return Response({"error": "Saved profile not found"}, status=status.HTTP_404_NOT_FOUND)    
     
+    
+class MarkNotificationAsReadView(APIView):
+    def patch(self, request, notification_id):
+        notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+        notification.is_read = True
+        notification.save()
+        return Response({"message": "Notification marked as read"}, status=status.HTTP_200_OK)    
+    
+    
+    
+    
+
+
+class Search(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        # Check if unique_id is provided
+        unique_id = request.GET.get('unique_id')
+        if unique_id:
+            try:
+                user = User.objects.get(unique_id=unique_id)
+                serialized_data = self.get_user_details(user)
+                return JsonResponse(serialized_data, status=200)
+            except User.DoesNotExist:
+                return JsonResponse({"error": "User not found"}, status=404)
+
+        # Extract filters from query parameters
+        marital_status = request.GET.get('marital_status')
+        education = request.GET.get('education')
+        caste = request.GET.get('caste')
+        religion = request.GET.get('religion')
+        physical_status = request.GET.get('physical_status')
+        weight_range = request.GET.get('weight')  # e.g., "54.0 - 75.0"
+        height_range = request.GET.get('height')  # e.g., "5.0 - 7.0"
+        income = request.GET.get('income')
+        age_range = request.GET.get('age')  # e.g., "50-40" (descending)
+
+        filters = Q()
+        any_filters = Q()
+
+        # Apply filters
+        if marital_status:
+            filters &= Q(profile__marital_status__id=marital_status)
+            any_filters |= Q(profile__marital_status__id=marital_status)
+
+        if education:
+            filters &= Q(groombrideinfo__education__id=education)
+            any_filters |= Q(groombrideinfo__education__id=education)
+
+        if caste:
+            filters &= Q(profile__caste__id=caste)
+            any_filters |= Q(profile__caste__id=caste)
+
+        if religion:
+            filters &= Q(profile__religion__id=religion)
+            any_filters |= Q(profile__religion__id=religion)
+
+        if physical_status:
+            filters &= Q(profile__physical_status__id=physical_status)
+            any_filters |= Q(profile__physical_status__id=physical_status)
+
+        # Handle weight range (e.g., "54.0 - 75.0")
+        if weight_range:
+            try:
+                min_weight, max_weight = map(float, weight_range.split('-'))
+                if min_weight > max_weight:
+                    min_weight, max_weight = max_weight, min_weight
+                filters &= Q(profile__weight__range=(min_weight, max_weight))
+                any_filters |= Q(profile__weight__range=(min_weight, max_weight))
+            except ValueError:
+                return JsonResponse({"error": "Invalid weight range format. Use 'min - max'."}, status=400)
+
+        # Handle height range (e.g., "5.0 - 7.0")
+        if height_range:
+            try:
+                min_height, max_height = map(float, height_range.split('-'))
+                if min_height > max_height:
+                    min_height, max_height = max_height, min_height
+                filters &= Q(profile__height__range=(min_height, max_height))
+                any_filters |= Q(profile__height__range=(min_height, max_height))
+            except ValueError:
+                return JsonResponse({"error": "Invalid height range format. Use 'min - max'."}, status=400)
+
+        if income:
+            filters &= Q(groombrideinfo__income__id=income)
+            any_filters |= Q(groombrideinfo__income__id=income)
+
+        # Handle age range (e.g., "50-40")
+        if age_range:
+            try:
+                min_age, max_age = map(int, age_range.split('-'))
+                if min_age < max_age:
+                    min_age, max_age = max_age, min_age
+
+                today = date.today()
+
+                # Calculate accurate DOB range
+                max_dob = today.replace(year=today.year - min_age)  # Youngest DOB
+                min_dob = today.replace(year=today.year - max_age - 1)  # Oldest DOB
+
+                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob))
+                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob))
+            except ValueError:
+                return JsonResponse({"error": "Invalid age range format. Use 'min - max'."}, status=400)
+
+        # Get all matching users
+        users = User.objects.filter(any_filters).annotate(
+            match_count=Count('id', filter=filters)
+        ).order_by('-match_count')
+
+        # Serialize user details
+        serialized_data = []
+        for user in users:
+            user_data = self.get_user_details(user)
+            serialized_data.append(user_data)
+
+        return JsonResponse(serialized_data, safe=False, status=200)
+
+    def get_user_details(self, user):
+        """Helper function to fetch and serialize user details."""
+        user_profile = Profile.objects.filter(user=user).first()
+        groom_bride_info = GroomBrideInfo.objects.filter(user=user).first()
+        family_info = FamilyInformation.objects.filter(user=user).first()
+        user_posts = Post.objects.filter(user=user)
+        user_hobbies = UserHobby.objects.filter(user=user).first()
+
+        return {
+            "user_profile": FetchProfileSerializer(user_profile).data if user_profile else None,
+            "groom_bride_info": FetchGroomBrideInfoSerializer(groom_bride_info).data if groom_bride_info else None,
+            "family_info": FetchFamilyInformationSerializer(family_info).data if family_info else None,
+            "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else None,
+            "hobbies": UserHobbySerializer(user_hobbies).data if user_hobbies else None,
+        }

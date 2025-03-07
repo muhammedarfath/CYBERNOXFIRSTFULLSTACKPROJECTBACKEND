@@ -4,12 +4,11 @@ from rest_framework import serializers
 from .models import Message
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    author = UserSerializer(read_only=True)
-
+    sender = UserSerializer(read_only = True)
+    receiver = UserSerializer(read_only = True)
     class Meta:
         model = Message
-        fields = ["id", "author", "sender", "content", "is_read", "timestamp"]
+        fields = ['id','sender','receiver','message','timestamp','is_read']
 
 class NotificationSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)

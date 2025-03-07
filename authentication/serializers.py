@@ -1,6 +1,6 @@
 from partnerpreferences.serializers import PartnerExpectationSerializer, UserHobbySerializer
 from rest_framework import serializers
-from .models import Blood, CurrentLiving, DrinkingPreference, Hair, HairType, HomeType, PhysicalStatus, Political, Polygamy, Post, ReligiousServices, Religiousness, Skin, SmokingPreference, User,BodyType
+from .models import Blood, CurrentLiving, DrinkingPreference, Hair, HairType, HomeType, PhysicalStatus, Political, Polygamy, Post, ReligiousServices, Religiousness, SavedProfile, Skin, SmokingPreference, User,BodyType
 from django.contrib.auth.hashers import make_password
 from .models import Profile, User, MaritalStatus, Religion, Caste,GroomBrideInfo, Education, Employment, AnnualIncome,FamilyInformation, FamilyType, FamilyStatus, Occupation,Gender,CreateFor
 
@@ -51,8 +51,16 @@ class GroomBrideInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GroomBrideInfo
-        fields = ['id','user','addres','secondary_mobileno', 'country', 'state', 'city','present_country','present_state','present_city', 'family_live', 'occupation', 'other_occupation', 'education', 'employment', 'income', 'college_name']        
-        
+        fields = ['id','user','addres','secondary_mobileno', 'country', 'state', 'city','present_country','present_state','present_city', 'family_live', 'occupation', 'other_occupation', 'education', 'employment', 'income', 'college_name']  
+              
+class SavedProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    saved_user = UserSerializer()
+    class Meta:
+        model = SavedProfile
+        fields = ['id','user','saved_user','created_at'] 
+ 
+                
         
 class FamilyInformationSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
@@ -205,10 +213,11 @@ class FullProfileSerializer(serializers.Serializer):
     family_info = FetchFamilyInformationSerializer()
     user_hobby = UserHobbySerializer()
     partner_preferences = PartnerExpectationSerializer()
+    saved_profiles = SavedProfileSerializer(many=True)  
 
     class Meta:
-        fields = ['user_profile', 'groom_bride_info', 'family_info','partner_preferences']   
-        
+        fields = ['user_profile', 'groom_bride_info', 'family_info', 'partner_preferences', 'saved_profiles']
+
 class PostSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     class Meta:
@@ -304,5 +313,7 @@ class LivingSituationSerializer(serializers.ModelSerializer):
         model = CurrentLiving
         fields = ['id', 'name']      
         
+
+
         
 

@@ -7,14 +7,17 @@ from django.utils.timezone import now
 
 
 class Message(models.Model):
-    author = models.ForeignKey(User,related_name='author_messages',on_delete=models.CASCADE)
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sender_name")
-    content = models.TextField()
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE,related_name='receiver_message')
+    sender = models.ForeignKey(User,on_delete=models.CASCADE,related_name = 'send_message')
+    message = models.TextField()
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     
-    def __str__(self):
-        return self.author.email
+    def __str__(self) -> str:
+            return f"{self.sender} - {self.receiver}"
+        
+
+
  
  
 class SubscriptionPlan(models.Model):
@@ -25,7 +28,7 @@ class SubscriptionPlan(models.Model):
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.plan_name}"
+        return f"{self.user.email} - {self.plan_name}"
 
     def is_subscription_active(self):
         return self.is_active and self.end_date >= now()    
