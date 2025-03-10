@@ -7,16 +7,19 @@ from django.utils.timezone import now
 
 
 class Message(models.Model):
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE,related_name='receiver_message')
-    sender = models.ForeignKey(User,on_delete=models.CASCADE,related_name = 'send_message')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receiver_message')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='send_message')
     message = models.TextField()
+    audio = models.FileField(upload_to='audio_messages/', blank=True, null=True)
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
     
     def __str__(self) -> str:
-            return f"{self.sender} - {self.receiver}"
-        
+        return f"{self.sender} - {self.receiver}"
 
+    def mark_as_read(self):
+        self.is_read = True
+        self.save()
 
  
  

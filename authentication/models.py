@@ -191,6 +191,7 @@ class User(AbstractUser):
     termsandcondition = models.BooleanField(default=False, verbose_name="Terms and Conditions Accepted")
     unique_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, verbose_name="Profile Picture")
+    is_online = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if not self.unique_id:
@@ -219,11 +220,16 @@ class InterestSent(models.Model):
 
 
 class Notification(models.Model):
+    NOTIFICATION_TYPES = (
+        ('message', 'Message Notification'),
+        ('interest', 'Interest Notification'),
+    )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="sent_notifications")
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     timestamp = models.DateTimeField(auto_now_add=True)
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='message')
 
     
 class Post(models.Model):

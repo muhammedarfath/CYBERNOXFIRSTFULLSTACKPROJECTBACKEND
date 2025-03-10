@@ -223,6 +223,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "eloramatrimony@gmail.com"
 EMAIL_HOST_PASSWORD = "xyon letj qcdt ynzt"
+DEFAULT_FROM_EMAIL = "eloramatrimony@gmail.com"
 
 # Frontend URL where the reset page exists
 FRONTEND_URL = "http://localhost:5173"

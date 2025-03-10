@@ -100,6 +100,11 @@ class UnreadNotification(APIView):
             received_notifications = Notification.objects.filter(user=user, is_read=False).order_by('-timestamp')
             sent_notifications = Notification.objects.filter(sender=user, is_read=False).order_by('-timestamp')
 
+            # Categorize received notifications
+            interest_notifications = received_notifications.filter(notification_type='interest')
+            message_notifications = received_notifications.filter(notification_type='message')
+
+            # Prepare response data
             received_data = [
                 {
                     "notification": NotificationSerializer(notification).data,
@@ -119,6 +124,8 @@ class UnreadNotification(APIView):
             response_data = {
                 "has_active_subscription": has_active_subscription,
                 "unread_count": received_notifications.count(),
+                "interest_unread_count": interest_notifications.count(),  # Count of interest notifications
+                "message_unread_count": message_notifications.count(),  # Count of message notifications
                 "received_notifications": received_data,
                 "sent_notifications": sent_data
             }
@@ -128,6 +135,7 @@ class UnreadNotification(APIView):
         except Exception as e:
             logger.error(f"Error in UnreadNotification view: {e}")
             return Response({"error": "Internal Server Error"}, status=500)
+
         
         
 class GetMessage(ListAPIView):
@@ -153,3 +161,36 @@ class GetMessage(ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)        
         
+class MarkMessageNotification(APIView):
+    permission_classes = [IsAuthenticated]  
+
+    def post(self, request, *args, **kwargs):
+        user = request.user  
+        Notification.objects.filter(
+            user=user, 
+            notification_type='message', 
+            is_read=False
+        ).update(is_read=True)
+        
+        return Response({"status": "success"}, status=status.HTTP_200_OK)     
+    
+class UnreadMessageCountView(APIView):
+    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+
+    def get(self, request, *args, **kwargs):
+        receiver_id = request.user.id  # ID of the authenticated user (receiver)
+
+        # Get unread message counts for each sender
+        unread_counts = (
+            Message.objects
+            .filter(receiver_id=receiver_id, is_read=False)
+            .values('sender_id')
+            .annotate(unread_count=models.Count('id'))
+        )
+        
+        # Convert to a dictionary for easy lookup
+        unread_counts_dict = {
+            item['sender_id']: item['unread_count'] for item in unread_counts
+        }
+
+        return Response(unread_counts_dict, status=status.HTTP_200_OK)       
