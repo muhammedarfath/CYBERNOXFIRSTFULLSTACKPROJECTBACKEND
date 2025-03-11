@@ -192,6 +192,7 @@ class User(AbstractUser):
     unique_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, verbose_name="Profile Picture")
     is_online = models.BooleanField(default=False)
+    blocked_users = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='blocked_by')
 
     def save(self, *args, **kwargs):
         if not self.unique_id:
@@ -210,6 +211,31 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
     
+    def block_user(self, user_to_block):
+        """
+        Block a user.
+        :param user_to_block: The user to block (User instance).
+        """
+        if user_to_block not in self.blocked_users.all():
+            self.blocked_users.add(user_to_block)
+            self.save()
+
+    def unblock_user(self, user_to_unblock):
+        """
+        Unblock a user.
+        :param user_to_unblock: The user to unblock (User instance).
+        """
+        if user_to_unblock in self.blocked_users.all():
+            self.blocked_users.remove(user_to_unblock)
+            self.save()
+
+    def is_user_blocked(self, user_to_check):
+        """
+        Check if a user is blocked by the current user.
+        :param user_to_check: The user to check (User instance).
+        :return: True if the user is blocked, False otherwise.
+        """
+        return self.blocked_users.filter(id=user_to_check.id).exists()    
     
 class InterestSent(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="interest", blank=True, null=True)

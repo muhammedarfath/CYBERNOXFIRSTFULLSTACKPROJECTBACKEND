@@ -1109,15 +1109,31 @@ class MessageUser(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.GET.get("user_id")  
+        user_id = request.GET.get("user_id")
         
         if not user_id:
             return Response({"error": "User ID is required"}, status=400)
 
         user = get_object_or_404(User, id=user_id)
-        serializer = UserSerializer(user)
 
-        return Response(serializer.data, status=200)
+        # Fetch related data
+        user_profile = Profile.objects.filter(user=user).first()
+        groom_bride_info = GroomBrideInfo.objects.filter(user=user).first()
+        family_info = FamilyInformation.objects.filter(user=user).first()
+        user_posts = Post.objects.filter(user=user)
+        user_hobbies = UserHobby.objects.filter(user=user).first()
+
+        # Serialize the data
+        data = {
+            "user_profile": FetchProfileSerializer(user_profile).data if user_profile else None,
+            "groom_bride_info": FetchGroomBrideInfoSerializer(groom_bride_info).data if groom_bride_info else None,
+            "family_info": FetchFamilyInformationSerializer(family_info).data if family_info else None,
+            "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else [],
+            "hobbies": UserHobbySerializer(user_hobbies).data if user_hobbies else None,
+        }
+
+        return Response(data, status=200)
+
     
     
 class SavedProfileViewSet(APIView):
@@ -1284,3 +1300,28 @@ class Search(APIView):
             "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else None,
             "hobbies": UserHobbySerializer(user_hobbies).data if user_hobbies else None,
         }
+        
+
+
+
+class BlockUser(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        user_to_block_id = request.data.get('userId')
+        try:
+            user_to_block = User.objects.get(id=user_to_block_id)
+            request.user.block_user(user_to_block)
+            return JsonResponse({'status': 'success', 'message': 'User blocked successfully.'})
+        except User.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'User not found.'}, status=404)
+
+class UnBlockUser(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        user_to_unblock_id = request.data.get('userId')
+        try:
+            user_to_unblock = User.objects.get(id=user_to_unblock_id)
+            request.user.unblock_user(user_to_unblock)
+            return JsonResponse({'status': 'success', 'message': 'User unblocked successfully.'})
+        except User.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'User not found.'}, status=404)        

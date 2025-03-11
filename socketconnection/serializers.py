@@ -8,7 +8,7 @@ class MessageSerializer(serializers.ModelSerializer):
     receiver = UserSerializer(read_only = True)
     class Meta:
         model = Message
-        fields = ['id','sender','receiver','message','timestamp','is_read']
+        fields = ['id', 'sender', 'receiver', 'message', 'audio', 'is_read', 'timestamp']
 
 class NotificationSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)

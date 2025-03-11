@@ -1,3 +1,4 @@
+import base64
 import json
 from socketconnection.utils import send_interest_email, send_message_email
 from socketconnection.serializers import MessageSerializer
@@ -11,6 +12,7 @@ from asgiref.sync import sync_to_async
 import logging
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.core.files.base import ContentFile
 
 
 User = get_user_model()
@@ -142,7 +144,6 @@ class MessageNotificationConsumer(AsyncWebsocketConsumer):
         }))            
              
 class ChatConsumer(AsyncWebsocketConsumer):
-    
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.sender_id, self.recipient_id = self.room_name.split('_')
@@ -174,43 +175,63 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await super().disconnect(close_code)
 
-        
-        
     async def receive(self, text_data):
-        # Receive message from WebSocket
         text_data_json = json.loads(text_data)
-        text = text_data_json['text']
-        sender = text_data_json['sender']
+        text = text_data_json.get('text')
+        sender = text_data_json.get('sender')
+        is_audio = text_data_json.get('isAudio')
         recipient_id = self.room_name.split('_')[1]
-        chat_message = await self.save_chat_message(text , sender , recipient_id)
+
+        # Check if the recipient has blocked the sender
+        is_blocked = await self.is_user_blocked(sender, recipient_id)
+        if is_blocked:
+            # Notify the sender that they are blocked
+            await self.send(text_data=json.dumps({
+                'type': 'blocked',
+                'message': 'You are blocked by the recipient. Message not sent.',
+            }))
+            return  # Exit the function without sending the message
+
+        if is_audio:
+            audio_data = is_audio
+            chat_message = await self.save_audio_message(audio_data, sender, recipient_id)
+        else:
+            chat_message = await self.save_chat_message(text, sender, recipient_id)
 
         if chat_message and not chat_message.is_read:
             await database_sync_to_async(chat_message.mark_as_read)()
 
-        messages = await self.get_messages(sender , recipient_id)
-        print(messages,"this is notification messages")
+        messages = await self.get_messages(sender, recipient_id)
 
-        # Send message to room group
-        await(self.channel_layer.group_send)(
+        await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
                 'messages': messages,
                 'sender': sender,
-                'message':text
+                'message': text if not is_audio else None,
+                'isAudio': is_audio,
             }
-        )  
-        
-        await self.send_notification_to_recipient(sender, recipient_id, text)    
-        
-    async def send_notification_to_recipient(self, sender_id, recipient_id, message_text):
+        )
+
+        await self.send_notification_to_recipient(sender, recipient_id, is_audio, text if not is_audio else "Audio message")
+
+    @database_sync_to_async
+    def is_user_blocked(self, sender_id, recipient_id):
+        """
+        Check if the recipient has blocked the sender.
+        """
+        recipient = User.objects.get(id=recipient_id)
+        return recipient.blocked_users.filter(id=sender_id).exists()
+
+    async def send_notification_to_recipient(self, sender_id, recipient_id, is_audio, message_text):
         print(f"Sending notification to recipient {recipient_id} from sender {sender_id}")
         # Fetch sender and recipient details
         sender = await self.get_user(sender_id)
         recipient = await self.get_user(recipient_id)
-        
+
         # Create notification message
-        notification_message = f"New message from {sender.email}: {message_text}"        
+        notification_message = f"New message from {sender.email}: {message_text}"
 
         # Send notification to the recipient's notification group
         await self.channel_layer.group_send(
@@ -223,8 +244,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         await self.create_notification(recipient, sender, notification_message)
 
-        
-
     async def chat_message(self, event):
         # Receive message from room group
         messages = event['messages']
@@ -235,7 +254,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'messages': messages,
             'sender': sender,
-            'message':message,
+            'message': message,
         }))
 
     async def user_status(self, event):
@@ -249,11 +268,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'user_id': user_id,
             'status': status
         }))
-        
+
+    @database_sync_to_async
+    def save_audio_message(self, audio_data, sender_id, recipient_id):
+        format, audio_str = audio_data.split(';base64,')
+        ext = format.split('/')[-1]
+        audio_file = ContentFile(base64.b64decode(audio_str), name=f'audio_{sender_id}_{recipient_id}.{ext}')
+
+        message = Message.objects.create(
+            sender_id=sender_id,
+            receiver_id=recipient_id,
+            audio=audio_file,
+            is_read=False
+        )
+        return message
+
     @database_sync_to_async
     def get_user(self, user_id):
         return User.objects.get(id=user_id)
-    
+
     @database_sync_to_async
     def create_notification(self, recipient, sender, message):
         notification = Notification.objects.create(
@@ -264,18 +297,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         return notification
 
+    @database_sync_to_async
+    def save_chat_message(self, message, sender_id, recipient_id):
+        Message.objects.create(message=message, sender_id=sender_id, receiver_id=recipient_id)
 
     @database_sync_to_async
-    def save_chat_message(self , message , sender_id , recipient_id):
-        Message.objects.create(message = message , sender_id = sender_id ,receiver_id = recipient_id)  
-        
-    @database_sync_to_async
-    def get_messages(self,sender ,recipient_id ):
-        messages=[]
-        for instance in Message.objects.filter(sender__in =[sender , recipient_id] , receiver__in = [sender,recipient_id]):
-            messages=MessageSerializer(instance).data
-        return messages   
-    
+    def get_messages(self, sender, recipient_id):
+        messages = []
+        for instance in Message.objects.filter(sender__in=[sender, recipient_id], receiver__in=[sender, recipient_id]):
+            messages = MessageSerializer(instance).data
+        return messages
+
     @database_sync_to_async
     def update_user_status(self, user_id, status):
         # Update the user's status in the database
@@ -293,5 +325,3 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'status': status
             }
         )
-           
-    

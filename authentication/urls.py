@@ -67,5 +67,6 @@ urlpatterns = [
     path('save-profile/', SavedProfileViewSet.as_view(), name='save-profile'),
     path('mark-as-read/<int:notification_id>/', MarkNotificationAsReadView.as_view(), name='mark-notification-as-read'),
 
-
+    path('block-user/', BlockUser.as_view(), name='block_user'),
+    path('unblock-user/', UnBlockUser.as_view(), name='unblock_user'),
 ]
