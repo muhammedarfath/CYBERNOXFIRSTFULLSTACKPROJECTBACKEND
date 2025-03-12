@@ -64,6 +64,7 @@ urlpatterns = [
     path("update-mothername/", UpdateMotherName.as_view(), name="update-mothername"),
     path("message-user/", MessageUser.as_view(), name="message-user"),
     path("search/", Search.as_view(), name="search"),
+    path("expectation/", Expectation.as_view(), name="expectation"),
     path('save-profile/', SavedProfileViewSet.as_view(), name='save-profile'),
     path('mark-as-read/<int:notification_id>/', MarkNotificationAsReadView.as_view(), name='mark-notification-as-read'),
 

@@ -1184,6 +1184,8 @@ class Search(APIView):
 
     def get(self, request):
         # Check if unique_id is provided
+        
+
         unique_id = request.GET.get('unique_id')
         if unique_id:
             try:
@@ -1195,14 +1197,21 @@ class Search(APIView):
 
         # Extract filters from query parameters
         marital_status = request.GET.get('marital_status')
+        country = request.GET.get('country')
+        state = request.GET.get('state')
         education = request.GET.get('education')
         caste = request.GET.get('caste')
         religion = request.GET.get('religion')
         physical_status = request.GET.get('physical_status')
-        weight_range = request.GET.get('weight')  # e.g., "54.0 - 75.0"
-        height_range = request.GET.get('height')  # e.g., "5.0 - 7.0"
+        weight_range = request.GET.get('weight')
+        height_range = request.GET.get('height')  
         income = request.GET.get('income')
-        age_range = request.GET.get('age')  # e.g., "50-40" (descending)
+        age_range = request.GET.get('age') 
+        
+        if not any([marital_status, country, state, education, caste, religion, physical_status, income]):
+            return JsonResponse(
+                {"error": "At least one filter parameter is required."}, status=400
+            )
 
         filters = Q()
         any_filters = Q()
@@ -1227,8 +1236,15 @@ class Search(APIView):
         if physical_status:
             filters &= Q(profile__physical_status__id=physical_status)
             any_filters |= Q(profile__physical_status__id=physical_status)
+            
+        if country:
+            filters &= Q(groombrideinfo__country=country)
+            any_filters |= Q(groombrideinfo__country=country)
+            
+        if state:
+            filters &= Q(groombrideinfo__state=state)
+            any_filters |= Q(groombrideinfo__state=state)                       
 
-        # Handle weight range (e.g., "54.0 - 75.0")
         if weight_range:
             try:
                 min_weight, max_weight = map(float, weight_range.split('-'))
@@ -1302,7 +1318,133 @@ class Search(APIView):
         }
         
 
+class Expectation(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        # Extract filters from query parameters
+        marital_status = request.GET.get('marital_status')
+        education = request.GET.get('education')
+        caste = request.GET.get('caste')
+        religion = request.GET.get('religion')
+        physical_status = request.GET.get('physical_status')
+        weight_range = request.GET.get('weight')
+        height_range = request.GET.get('height')
+        income = request.GET.get('income')
+        age_range = request.GET.get('age')
+        country = request.GET.get('country')
+        state = request.GET.get('state')
+        city = request.GET.get('city')
+
+
+        # Initialize filters
+        filters = Q()
+        any_filters = Q()
+
+        # Expectation-based filters
+        if marital_status:
+            filters &= Q(profile__marital_status__status=marital_status)
+            any_filters |= Q(profile__marital_status__status=marital_status)
+
+        if education:
+            filters &= Q(groombrideinfo__education__highest_education=education)
+            any_filters |= Q(groombrideinfo__education__highest_education=education)
+
+        if caste:
+            filters &= Q(profile__caste__name=caste)
+            any_filters |= Q(profile__caste__name=caste)
+
+        if religion:
+            filters &= Q(profile__religion__name=religion)
+            any_filters |= Q(profile__religion__name=religion)
+
+        if physical_status:
+            filters &= Q(profile__physical_status__status=physical_status)
+            any_filters |= Q(profile__physical_status__status=physical_status)
+
+        if weight_range:
+            try:
+                min_weight, max_weight = map(float, weight_range.split('-'))
+                if min_weight > max_weight:
+                    min_weight, max_weight = max_weight, min_weight
+                filters &= Q(profile__weight__range=(min_weight, max_weight))
+                any_filters |= Q(profile__weight__range=(min_weight, max_weight))
+            except ValueError:
+                return JsonResponse({"error": "Invalid weight range format. Use 'min - max'."}, status=400)
+
+        if height_range:
+            try:
+                min_height, max_height = map(float, height_range.split('-'))
+                if min_height > max_height:
+                    min_height, max_height = max_height, min_height
+                filters &= Q(profile__height__range=(min_height, max_height))
+                any_filters |= Q(profile__height__range=(min_height, max_height))
+            except ValueError:
+                return JsonResponse({"error": "Invalid height range format. Use 'min - max'."}, status=400)
+
+        if income:
+            filters &= Q(groombrideinfo__income__annual_income=income)
+            any_filters |= Q(groombrideinfo__income__annual_income=income)
+
+        if age_range:
+            try:
+                min_age, max_age = map(int, age_range.split('-'))
+                if min_age > max_age:
+                    min_age, max_age = max_age, min_age
+
+                today = date.today()
+                max_dob = today.replace(year=today.year - min_age)
+                min_dob = today.replace(year=today.year - max_age - 1)
+
+                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob))
+                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob))
+            except ValueError:
+                return JsonResponse({"error": "Invalid age range format. Use 'min - max'."}, status=400)
+
+        # Location-based filters
+        if country:
+            filters &= Q(groombrideinfo__country=country)
+            any_filters |= Q(groombrideinfo__country=country)
+
+        if state:
+            filters &= Q(groombrideinfo__state=state)
+            any_filters |= Q(groombrideinfo__state=state)
+
+        if city:
+            filters &= Q(groombrideinfo__city=city)
+            any_filters |= Q(groombrideinfo__city=city)
+
+        users = User.objects.filter(any_filters).annotate(
+            match_count=Count('id', filter=filters)
+        ).order_by('-match_count').exclude(id=request.user.id)
+
+        # Exclude users already interested by the logged-in user
+        interested_users = InterestSent.objects.filter(user=request.user).values_list('interest', flat=True)
+        users = users.exclude(id__in=interested_users)
+
+        serialized_data = []
+        for user in users:
+            user_data = self.get_user_details(user)
+            serialized_data.append(user_data)
+
+        return JsonResponse(serialized_data, safe=False, status=200)
+
+
+    def get_user_details(self, user):
+        """Helper function to fetch and serialize user details."""
+        user_profile = Profile.objects.filter(user=user).first()
+        groom_bride_info = GroomBrideInfo.objects.filter(user=user).first()
+        family_info = FamilyInformation.objects.filter(user=user).first()
+        user_posts = Post.objects.filter(user=user)
+        user_hobbies = UserHobby.objects.filter(user=user).first()
+
+        return {
+            "user_profile": FetchProfileSerializer(user_profile).data if user_profile else None,
+            "groom_bride_info": FetchGroomBrideInfoSerializer(groom_bride_info).data if groom_bride_info else None,
+            "family_info": FetchFamilyInformationSerializer(family_info).data if family_info else None,
+            "posts": PostSerializer(user_posts, many=True).data if user_posts.exists() else None,
+            "hobbies": UserHobbySerializer(user_hobbies).data if user_hobbies else None,
+        }
 
 class BlockUser(APIView):
     permission_classes = [IsAuthenticated]

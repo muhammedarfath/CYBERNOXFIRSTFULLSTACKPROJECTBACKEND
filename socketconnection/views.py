@@ -141,15 +141,17 @@ class UnreadNotification(APIView):
 class GetMessage(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = MessageSerializer
+
     def get_queryset(self):
         sender_id = self.kwargs['sender_id']
-        reciever_id = self.kwargs['reciever_id']
+        receiver_id = self.kwargs['reciever_id']
+
         queryset = Message.objects.filter(
-            sender__in=[sender_id, reciever_id],
-            receiver__in=[sender_id, reciever_id]
+            sender__in=[sender_id, receiver_id],
+            receiver__in=[sender_id, receiver_id]
         ).order_by('timestamp')
+
         for message in queryset:
-            print(message.is_read)
             if message.receiver.id == self.request.user.id:
                 message.is_read = True
                 message.save()
@@ -159,7 +161,23 @@ class GetMessage(ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)        
+
+        sender_id = self.kwargs['sender_id']
+        receiver_id = self.kwargs['reciever_id']
+
+        try:
+            sender = User.objects.get(id=sender_id)
+            receiver = User.objects.get(id=receiver_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        is_blocked = sender.is_user_blocked(receiver)
+
+        return Response({
+            "messages": serializer.data,
+            "blocked": is_blocked
+        }, status=status.HTTP_200_OK)
+       
         
 class MarkMessageNotification(APIView):
     permission_classes = [IsAuthenticated]  
@@ -175,12 +193,11 @@ class MarkMessageNotification(APIView):
         return Response({"status": "success"}, status=status.HTTP_200_OK)     
     
 class UnreadMessageCountView(APIView):
-    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+    permission_classes = [IsAuthenticated]  
 
     def get(self, request, *args, **kwargs):
-        receiver_id = request.user.id  # ID of the authenticated user (receiver)
+        receiver_id = request.user.id  
 
-        # Get unread message counts for each sender
         unread_counts = (
             Message.objects
             .filter(receiver_id=receiver_id, is_read=False)
