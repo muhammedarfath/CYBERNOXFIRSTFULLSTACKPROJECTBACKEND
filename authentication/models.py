@@ -190,7 +190,7 @@ class User(AbstractUser):
     password = models.CharField(max_length=128, verbose_name="Password")
     termsandcondition = models.BooleanField(default=False, verbose_name="Terms and Conditions Accepted")
     unique_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
-    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, verbose_name="Profile Picture")
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, verbose_name="Profile Picture",default='profile_pictures/default.jpg')
     is_online = models.BooleanField(default=False)
     blocked_users = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='blocked_by')
 

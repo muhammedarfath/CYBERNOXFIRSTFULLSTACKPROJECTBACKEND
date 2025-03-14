@@ -57,13 +57,14 @@ class UpdatePartnerExpectation(APIView):
             partner_expectation.height_preference = data['height_preference']
         
         if 'mother_tongue' in data:
-            partner_expectation.mother_tongue = data['mother_tongue']
+            partner_expectation.mother_tongue =', '.join(data['mother_tongue'])
         
         if 'partner_district' in data:
             partner_expectation.partner_district = data['partner_district']
         
         if 'partner_country' in data:
-            partner_expectation.partner_country = data['partner_country']
+            # Convert list to a comma-separated string
+            partner_expectation.partner_country = ', '.join(data['partner_country'])
 
         def update_many_to_many_field(field_name, model):
             if field_name in data:

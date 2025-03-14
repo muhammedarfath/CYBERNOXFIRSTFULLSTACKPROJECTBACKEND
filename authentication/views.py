@@ -1207,51 +1207,53 @@ class Search(APIView):
         height_range = request.GET.get('height')  
         income = request.GET.get('income')
         age_range = request.GET.get('age') 
-        
-        if not any([marital_status, country, state, education, caste, religion, physical_status, income]):
-            return JsonResponse(
-                {"error": "At least one filter parameter is required."}, status=400
-            )
-
+    
+        # if not any([marital_status, country, state, education, caste, religion, physical_status, income]):
+        #     return JsonResponse(
+        #         {"error": "At least one filter parameter is required."}, status=400
+        #     )
+        if request.user.gender:
+            opposite_gender = 'Male' if request.user.gender.name == 'Female' else 'Female'
+            
         filters = Q()
         any_filters = Q()
 
         # Apply filters
         if marital_status:
-            filters &= Q(profile__marital_status__id=marital_status)
-            any_filters |= Q(profile__marital_status__id=marital_status)
+            filters &= Q(profile__marital_status__id=marital_status,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__marital_status__id=marital_status,profile__user__gender__name=opposite_gender)
 
         if education:
-            filters &= Q(groombrideinfo__education__id=education)
-            any_filters |= Q(groombrideinfo__education__id=education)
+            filters &= Q(groombrideinfo__education__id=education,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__education__id=education,groombrideinfo__user__gender__name=opposite_gender)
 
         if caste:
-            filters &= Q(profile__caste__id=caste)
-            any_filters |= Q(profile__caste__id=caste)
+            filters &= Q(profile__caste__id=caste,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__caste__id=caste,profile__user__gender__name=opposite_gender)
 
         if religion:
-            filters &= Q(profile__religion__id=religion)
-            any_filters |= Q(profile__religion__id=religion)
+            filters &= Q(profile__religion__id=religion,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__religion__id=religion,profile__user__gender__name=opposite_gender)
 
         if physical_status:
-            filters &= Q(profile__physical_status__id=physical_status)
-            any_filters |= Q(profile__physical_status__id=physical_status)
+            filters &= Q(profile__physical_status__id=physical_status,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__physical_status__id=physical_status,profile__user__gender__name=opposite_gender)
             
         if country:
-            filters &= Q(groombrideinfo__country=country)
-            any_filters |= Q(groombrideinfo__country=country)
+            filters &= Q(groombrideinfo__country=country,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__country=country,groombrideinfo__user__gender__name=opposite_gender)
             
         if state:
-            filters &= Q(groombrideinfo__state=state)
-            any_filters |= Q(groombrideinfo__state=state)                       
+            filters &= Q(groombrideinfo__state=state,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__state=state,groombrideinfo__user__gender__name=opposite_gender)                       
 
         if weight_range:
             try:
                 min_weight, max_weight = map(float, weight_range.split('-'))
                 if min_weight > max_weight:
                     min_weight, max_weight = max_weight, min_weight
-                filters &= Q(profile__weight__range=(min_weight, max_weight))
-                any_filters |= Q(profile__weight__range=(min_weight, max_weight))
+                filters &= Q(profile__weight__range=(min_weight, max_weight),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__weight__range=(min_weight, max_weight),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid weight range format. Use 'min - max'."}, status=400)
 
@@ -1261,14 +1263,14 @@ class Search(APIView):
                 min_height, max_height = map(float, height_range.split('-'))
                 if min_height > max_height:
                     min_height, max_height = max_height, min_height
-                filters &= Q(profile__height__range=(min_height, max_height))
-                any_filters |= Q(profile__height__range=(min_height, max_height))
+                filters &= Q(profile__height__range=(min_height, max_height),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__height__range=(min_height, max_height),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid height range format. Use 'min - max'."}, status=400)
 
         if income:
-            filters &= Q(groombrideinfo__income__id=income)
-            any_filters |= Q(groombrideinfo__income__id=income)
+            filters &= Q(groombrideinfo__income__id=income,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__income__id=income,groombrideinfo__user__gender__name=opposite_gender)
 
         # Handle age range (e.g., "50-40")
         if age_range:
@@ -1283,8 +1285,8 @@ class Search(APIView):
                 max_dob = today.replace(year=today.year - min_age)  # Youngest DOB
                 min_dob = today.replace(year=today.year - max_age - 1)  # Oldest DOB
 
-                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob))
-                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob))
+                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid age range format. Use 'min - max'."}, status=400)
 
@@ -1340,35 +1342,36 @@ class Expectation(APIView):
         # Initialize filters
         filters = Q()
         any_filters = Q()
-
+        if request.user.gender:
+            opposite_gender = 'Male' if request.user.gender.name == 'Female' else 'Female'
         # Expectation-based filters
         if marital_status:
-            filters &= Q(profile__marital_status__status=marital_status)
-            any_filters |= Q(profile__marital_status__status=marital_status)
+            filters &= Q(profile__marital_status__status=marital_status,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__marital_status__status=marital_status,profile__user__gender__name=opposite_gender)
 
         if education:
-            filters &= Q(groombrideinfo__education__highest_education=education)
-            any_filters |= Q(groombrideinfo__education__highest_education=education)
+            filters &= Q(groombrideinfo__education__highest_education=education,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__education__highest_education=education,groombrideinfo__user__gender__name=opposite_gender)
 
         if caste:
-            filters &= Q(profile__caste__name=caste)
-            any_filters |= Q(profile__caste__name=caste)
+            filters &= Q(profile__caste__name=caste,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__caste__name=caste,profile__user__gender__name=opposite_gender)
 
         if religion:
-            filters &= Q(profile__religion__name=religion)
-            any_filters |= Q(profile__religion__name=religion)
+            filters &= Q(profile__religion__name=religion,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__religion__name=religion,profile__user__gender__name=opposite_gender)
 
         if physical_status:
-            filters &= Q(profile__physical_status__status=physical_status)
-            any_filters |= Q(profile__physical_status__status=physical_status)
+            filters &= Q(profile__physical_status__status=physical_status,profile__user__gender__name=opposite_gender)
+            any_filters |= Q(profile__physical_status__status=physical_status,profile__user__gender__name=opposite_gender)
 
         if weight_range:
             try:
                 min_weight, max_weight = map(float, weight_range.split('-'))
                 if min_weight > max_weight:
                     min_weight, max_weight = max_weight, min_weight
-                filters &= Q(profile__weight__range=(min_weight, max_weight))
-                any_filters |= Q(profile__weight__range=(min_weight, max_weight))
+                filters &= Q(profile__weight__range=(min_weight, max_weight),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__weight__range=(min_weight, max_weight),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid weight range format. Use 'min - max'."}, status=400)
 
@@ -1377,14 +1380,14 @@ class Expectation(APIView):
                 min_height, max_height = map(float, height_range.split('-'))
                 if min_height > max_height:
                     min_height, max_height = max_height, min_height
-                filters &= Q(profile__height__range=(min_height, max_height))
-                any_filters |= Q(profile__height__range=(min_height, max_height))
+                filters &= Q(profile__height__range=(min_height, max_height),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__height__range=(min_height, max_height),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid height range format. Use 'min - max'."}, status=400)
 
         if income:
-            filters &= Q(groombrideinfo__income__annual_income=income)
-            any_filters |= Q(groombrideinfo__income__annual_income=income)
+            filters &= Q(groombrideinfo__income__annual_income=income,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__income__annual_income=income,groombrideinfo__user__gender__name=opposite_gender)
 
         if age_range:
             try:
@@ -1396,23 +1399,23 @@ class Expectation(APIView):
                 max_dob = today.replace(year=today.year - min_age)
                 min_dob = today.replace(year=today.year - max_age - 1)
 
-                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob))
-                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob))
+                filters &= Q(profile__date_of_birth__range=(min_dob, max_dob),profile__user__gender__name=opposite_gender)
+                any_filters |= Q(profile__date_of_birth__range=(min_dob, max_dob),profile__user__gender__name=opposite_gender)
             except ValueError:
                 return JsonResponse({"error": "Invalid age range format. Use 'min - max'."}, status=400)
 
         # Location-based filters
         if country:
-            filters &= Q(groombrideinfo__country=country)
-            any_filters |= Q(groombrideinfo__country=country)
+            filters &= Q(groombrideinfo__country=country,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__country=country,groombrideinfo__user__gender__name=opposite_gender)
 
         if state:
-            filters &= Q(groombrideinfo__state=state)
-            any_filters |= Q(groombrideinfo__state=state)
+            filters &= Q(groombrideinfo__state=state,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__state=state,groombrideinfo__user__gender__name=opposite_gender)
 
         if city:
-            filters &= Q(groombrideinfo__city=city)
-            any_filters |= Q(groombrideinfo__city=city)
+            filters &= Q(groombrideinfo__city=city,groombrideinfo__user__gender__name=opposite_gender)
+            any_filters |= Q(groombrideinfo__city=city,groombrideinfo__user__gender__name=opposite_gender)
 
         users = User.objects.filter(any_filters).annotate(
             match_count=Count('id', filter=filters)
