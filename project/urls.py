@@ -22,6 +22,7 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('authentication.urls')),
+    path('adminpanel/', include('adminpanel.urls')),
     path('partner/', include('partnerpreferences.urls')),
     path('aadhaarotp/', include('aadhaarotp.urls')), 
     path('socketconnection/', include('socketconnection.urls')), ]

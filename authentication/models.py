@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 import random
 import string
 from django.utils.timezone import now
+from django.utils import timezone
 
 # Create your models here.
   
@@ -182,9 +183,21 @@ class EthnicGroup(models.Model):
           
            
 class User(AbstractUser):
+    USER_TYPE_CHOICES = [
+        ('superadmin', 'Super Admin'),
+        ('admin', 'Admin'),
+        ('customer', 'Customer'),
+    ]
+
+    user_type = models.CharField(
+        max_length=20,
+        choices=USER_TYPE_CHOICES,
+        default='',
+        verbose_name="User Type"
+    )
     username = models.CharField(max_length=150, blank=True, null=True,unique=True) 
     email = models.EmailField(max_length=255, unique=True, verbose_name="Email")
-    mobileno = models.CharField(max_length=15, unique=True, verbose_name="Mobile Number")
+    mobileno = models.CharField(max_length=15, unique=True, verbose_name="Mobile Number",null=True,)
     createfor = models.ForeignKey(CreateFor, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Created For")
     gender = models.ForeignKey(Gender, on_delete=models.SET_NULL, null=True, blank=True)
     password = models.CharField(max_length=128, verbose_name="Password")
@@ -193,7 +206,9 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, verbose_name="Profile Picture",default='profile_pictures/default.jpg')
     is_online = models.BooleanField(default=False)
     blocked_users = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='blocked_by')
-
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now, verbose_name="Created At")
+    
     def save(self, *args, **kwargs):
         if not self.unique_id:
             self.unique_id = self.generate_unique_id()

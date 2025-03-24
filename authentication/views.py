@@ -360,7 +360,7 @@ class FetchProfileDetails(APIView):
             user_profile = Profile.objects.get(user=request.user)
             groom_bride_info = GroomBrideInfo.objects.get(user=request.user)
             family_info = FamilyInformation.objects.get(user=request.user)
-
+            
             # Retrieve saved profiles
             saved_profiles = SavedProfile.objects.filter(user=request.user)
 
@@ -1212,8 +1212,10 @@ class Search(APIView):
         #     return JsonResponse(
         #         {"error": "At least one filter parameter is required."}, status=400
         #     )
-        if request.user.gender:
+        if request.user.is_authenticated and hasattr(request.user, 'gender'):
             opposite_gender = 'Male' if request.user.gender.name == 'Female' else 'Female'
+        else:
+            opposite_gender = None
             
         filters = Q()
         any_filters = Q()
