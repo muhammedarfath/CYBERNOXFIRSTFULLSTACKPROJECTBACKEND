@@ -369,15 +369,21 @@ class FamilyInformation(models.Model):
         
 
 class UserVerification(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE) 
-    aadhar_number = models.CharField(max_length=12, blank=True, null=True) 
-    otp_sent = models.BooleanField(default=False) 
-    otp_verified = models.BooleanField(default=False) 
-    identity_proof_image = models.ImageField(upload_to='identity_proofs/', blank=True, null=True)  
-    aadhar_verified = models.BooleanField(default=False) 
-    
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    aadhar_number = models.CharField(max_length=12, blank=True, null=True)
+    otp_sent = models.BooleanField(default=False)
+    otp_verified = models.BooleanField(default=False)
+    proof_verified = models.BooleanField(default=False)
+
     def __str__(self):
-        return f"Verification for {self.user.username}"
+        return f"Verification for {self.user.email}"
+
+class IdentityProof(models.Model):
+    user_verification = models.ForeignKey(UserVerification, on_delete=models.CASCADE, related_name='identity_proofs')
+    image = models.ImageField(upload_to='identity_proofs/')
+
+    def __str__(self):
+        return f"Identity Proof for {self.user_verification.user.email}"
  
  
 class SavedProfile(models.Model):

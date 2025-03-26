@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Blood, BodyType, CurrentLiving, DrinkingPreference, EthnicGroup, Hair, HairType, HomeType, PhysicalStatus, Political, Polygamy, ReligiousServices, Religiousness, Skin, SmokingPreference, User,Religion,Caste,Gender,MaritalStatus,Profile,AnnualIncome,Employment,Education,GroomBrideInfo,FamilyInformation,FamilyType,FamilyStatus,Occupation,CreateFor,Post,UserVerification,SavedProfile
+from .models import Blood, BodyType, CurrentLiving, DrinkingPreference, EthnicGroup, Hair, HairType, HomeType, IdentityProof, PhysicalStatus, Political, Polygamy, ReligiousServices, Religiousness, Skin, SmokingPreference, User,Religion,Caste,Gender,MaritalStatus,Profile,AnnualIncome,Employment,Education,GroomBrideInfo,FamilyInformation,FamilyType,FamilyStatus,Occupation,CreateFor,Post,UserVerification,SavedProfile
 # Register your models here.
 
 admin.site.register(User)
@@ -35,6 +35,8 @@ admin.site.register(HomeType)
 admin.site.register(CurrentLiving)
 admin.site.register(UserVerification)
 admin.site.register(SavedProfile)
+admin.site.register(IdentityProof)
+
 
 
 

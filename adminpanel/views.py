@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from adminpanel.serializers import UserVerificationSerializer
 from socketconnection.models import SubscriptionPlan
 from authentication.serializers import FetchFamilyInformationSerializer, FetchProfileSerializer, GroomBrideInfoSerializer, PostSerializer
 from partnerpreferences.serializers import UserHobbySerializer
@@ -10,7 +11,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
-from authentication.models import  FamilyInformation, GroomBrideInfo, Post, Profile, User
+from authentication.models import  FamilyInformation, GroomBrideInfo, Post, Profile, User, UserVerification
 
 # Create your views here.
 
@@ -99,5 +100,15 @@ def customer_delete(request):
         
     else:
         return Response({"detail": "Invalid User."}, status=status.HTTP_401_UNAUTHORIZED)
-
     
+    
+    
+class UserVerificationList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.user_type != 'Customer':
+            queryset = UserVerification.objects.prefetch_related('identity_proofs').all()
+            serializer = UserVerificationSerializer(queryset, many=True)
+            return Response(serializer.data)
+        return Response({"detail": "Unauthorized"}, status=403)

@@ -1,7 +1,9 @@
+from authentication.models import IdentityProof, UserVerification
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 import requests
+from django.db import transaction
 
 # Sandbox API Configuration
 SANDBOX_API_KEY = "key_live_ActHU7QgqxUJ82vwSZCwoDAOeujDUjgR"
@@ -11,38 +13,60 @@ AUTH_TOKEN = "eyJhbGciOiJIUzUxMiJ9.eyJhdWQiOiJBUEkiLCJyZWZyZXNoX3Rva2VuIjoiZXlKa
 
 class SendOtpView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def post(self, request):
         try:
+            user = request.user
             aadhaar_number = request.data.get("aadhaar_number")
-            print(aadhaar_number)
-            if not aadhaar_number or len(aadhaar_number) != 12:
-                return Response({"message": "Invalid Aadhaar number"}, status=400)
-            
-            url = f"{SANDBOX_BASE_URL}/otp"
-            headers = {
-                "Authorization": AUTH_TOKEN,
-                "Content-Type": "application/json",
-                "x-api-key": SANDBOX_API_KEY
-            }
-            payload = {
-                "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
-                "reason": "For KYC",
-                "consent": "Y",
-                "aadhaar_number": aadhaar_number
-            }
-            
-            response = requests.post(url, json=payload, headers=headers)
-            
-                
-            if response.status_code == 200:
-                result = response.json()
-                return Response({"message": "OTP sent", "result": result})
-            else:
-                return Response({"message": "Failed to send OTP", "details": response.text}, status=response.status_code)
-        except Exception as e:
-            return Response({"message": "Error sending OTP", "error": str(e)}, status=500)
+            files = request.FILES.getlist("file_1") or [request.FILES.get("file_1")]
 
+            # Case 1: Aadhaar number is provided
+            if aadhaar_number:
+                if len(aadhaar_number) != 12 or not aadhaar_number.isdigit():
+                    return Response({"message": "Invalid Aadhaar number"}, status=400)
+
+                url = f"{SANDBOX_BASE_URL}/otp"
+                headers = {
+                    "Authorization": AUTH_TOKEN,
+                    "Content-Type": "application/json",
+                    "x-api-key": SANDBOX_API_KEY
+                }
+                payload = {
+                    "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
+                    "reason": "For KYC",
+                    "consent": "Y",
+                    "aadhaar_number": aadhaar_number
+                }
+
+                response = requests.post(url, json=payload, headers=headers)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return Response({"message": "OTP sent", "result": result}, status=200)
+                else:
+                    return Response(
+                        {"message": "Failed to send OTP", "details": response.text},
+                        status=response.status_code,
+                    )
+
+            if files:
+                verification, created = UserVerification.objects.get_or_create(user=user)
+                
+                with transaction.atomic():
+                    for file in files:
+                        IdentityProof.objects.create(user_verification=verification, image=file)
+
+                    verification.proof_verified = False 
+                    verification.save()
+
+                return Response({"message": "Identity proof uploaded successfully"}, status=200)
+
+            return Response({"message": "Please provide Aadhaar number or upload identity proof"}, status=400)
+
+        except Exception as e:
+            return Response({"message": "Error processing request", "error": str(e)}, status=500)
+        
+        
 class VerifyOtpView(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -50,9 +74,6 @@ class VerifyOtpView(APIView):
         try:
             ref_id = request.data.get("referenceId")
             otp = request.data.get("otp")
-            
-            print(ref_id,"ref id ")
-            print(otp,"otp ")
             
             if not ref_id or not otp:
                 return Response({"message": "Missing referenceId or OTP"}, status=400)
