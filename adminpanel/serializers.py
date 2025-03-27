@@ -14,3 +14,7 @@ class UserVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserVerification
         fields = ['user', 'proof_verified', 'identity_proofs']
+        
+        
+
+        

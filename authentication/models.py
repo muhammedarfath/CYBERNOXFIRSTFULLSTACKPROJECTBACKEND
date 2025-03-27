@@ -374,6 +374,7 @@ class UserVerification(models.Model):
     otp_sent = models.BooleanField(default=False)
     otp_verified = models.BooleanField(default=False)
     proof_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Verification for {self.user.email}"
